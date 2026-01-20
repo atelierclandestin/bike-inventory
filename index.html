@@ -1,862 +1,528 @@
-import React, { useState } from 'react';
-import { Upload, FileText, Download, CheckCircle, AlertCircle, Trash2, Database, Camera, Settings } from 'lucide-react';
-import * as XLSX from 'xlsx';
-import Papaparse from 'papaparse';
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bike Shop Inventory Importer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px; border-radius: 10px; margin-bottom: 30px; }
+        .header h1 { font-size: 32px; margin-bottom: 10px; }
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #ddd; }
+        .tab { padding: 15px 30px; background: none; border: none; font-size: 16px; cursor: pointer; color: #666; font-weight: 500; }
+        .tab.active { color: #667eea; border-bottom: 3px solid #667eea; }
+        .section { background: white; padding: 30px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .file-upload { border: 2px dashed #ddd; padding: 20px; border-radius: 8px; text-align: center; margin: 10px 0; }
+        .file-upload input { width: 100%; }
+        .btn { padding: 12px 24px; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s; }
+        .btn-primary { background: #667eea; color: white; }
+        .btn-primary:hover { background: #5568d3; }
+        .btn-success { background: #48bb78; color: white; }
+        .btn-success:hover { background: #38a169; }
+        .btn-danger { background: #f56565; color: white; }
+        .btn-danger:hover { background: #e53e3e; }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        .btn-row { display: flex; gap: 15px; margin: 20px 0; }
+        .btn-row .btn { flex: 1; }
+        .file-list { margin-top: 15px; }
+        .file-item { background: #f7fafc; padding: 10px; border-radius: 5px; margin: 5px 0; display: flex; justify-content: space-between; align-items: center; }
+        .file-item button { background: #f56565; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; }
+        .status { padding: 15px; border-radius: 8px; margin: 15px 0; font-weight: 500; }
+        .status.success { background: #c6f6d5; color: #22543d; }
+        .status.error { background: #fed7d7; color: #742a2a; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #f7fafc; font-weight: 600; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .stored-item { background: #f7fafc; padding: 15px; border-radius: 8px; margin: 10px 0; }
+        .stored-item button { background: #f56565; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; float: right; }
+        .image-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-top: 15px; }
+        .image-item { position: relative; }
+        .image-item img { width: 100%; height: 100px; object-fit: cover; border-radius: 8px; }
+        .image-item button { position: absolute; top: 5px; right: 5px; background: rgba(0,0,0,0.7); color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; }
+        .instructions { background: #fef5e7; border-left: 4px solid #f39c12; padding: 20px; margin-top: 30px; border-radius: 5px; }
+        .instructions h3 { margin-bottom: 10px; color: #d68910; }
+        .instructions li { margin: 8px 0; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚴 Bike Shop Inventory Importer</h1>
+            <p>Upload your files and generate a Shopify-ready CSV in seconds</p>
+        </div>
 
-const BikeInventoryImporter = () => {
-  const [files, setFiles] = useState({
-    invoices: [],
-    masterFiles: [],
-    inventorySheets: [],
-    lightspeedExports: [],
-    packingLists: []
-  });
-  const [storedMasterFiles, setStoredMasterFiles] = useState([]);
-  const [storedImages, setStoredImages] = useState([]);
-  const [processedData, setProcessedData] = useState([]);
-  const [processing, setProcessing] = useState(false);
-  const [status, setStatus] = useState('');
-  const [activeTab, setActiveTab] = useState('upload');
-  const [importing, setImporting] = useState(false);
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('upload')">📤 Upload Files</button>
+            <button class="tab" onclick="showTab('storage')">💾 Stored Data (<span id="stored-count">0 files, 0 images</span>)</button>
+        </div>
 
-  // Load stored data on mount
-  React.useEffect(() => {
-    loadStoredData();
-  }, []);
+        <div id="upload-tab">
+            <div class="grid">
+                <div class="section">
+                    <h3>📄 Invoices</h3>
+                    <div class="file-upload">
+                        <input type="file" multiple accept=".pdf,.xlsx,.xls,.csv" onchange="handleUpload('invoices', this)">
+                    </div>
+                    <div id="invoices-list" class="file-list"></div>
+                </div>
 
-  const loadStoredData = async () => {
-    try {
-      const masterResult = await window.storage.list('master-file:');
-      const imageResult = await window.storage.list('image:');
-      
-      if (masterResult && masterResult.keys) {
-        const masterFiles = await Promise.all(
-          masterResult.keys.map(async (key) => {
-            const result = await window.storage.get(key);
-            return result ? JSON.parse(result.value) : null;
-          })
-        );
-        setStoredMasterFiles(masterFiles.filter(f => f));
-      }
-      
-      if (imageResult && imageResult.keys) {
-        const images = await Promise.all(
-          imageResult.keys.map(async (key) => {
-            const result = await window.storage.get(key);
-            return result ? JSON.parse(result.value) : null;
-          })
-        );
-        setStoredImages(images.filter(i => i));
-      }
-    } catch (error) {
-      console.log('No stored data found or error loading:', error);
-    }
-  };
+                <div class="section">
+                    <h3>📋 Supplier Master Files</h3>
+                    <div class="file-upload">
+                        <input type="file" multiple accept=".xlsx,.xls,.csv" onchange="handleUpload('masterFiles', this)">
+                    </div>
+                    <div id="masterFiles-list" class="file-list"></div>
+                </div>
 
-  const handleFileUpload = (category, event) => {
-    const uploadedFiles = Array.from(event.target.files);
-    setFiles(prev => ({
-      ...prev,
-      [category]: [...prev[category], ...uploadedFiles]
-    }));
-    setStatus(`Added ${uploadedFiles.length} file(s) to ${category}`);
-  };
+                <div class="section">
+                    <h3>📊 Excel Inventory Sheets</h3>
+                    <div class="file-upload">
+                        <input type="file" multiple accept=".xlsx,.xls,.csv" onchange="handleUpload('inventorySheets', this)">
+                    </div>
+                    <div id="inventorySheets-list" class="file-list"></div>
+                </div>
 
-  const handleMasterFileStorage = async (event) => {
-    const uploadedFiles = Array.from(event.target.files);
-    
-    for (const file of uploadedFiles) {
-      try {
-        let data;
-        if (file.name.endsWith('.csv')) {
-          data = await readCSVFile(file);
-        } else {
-          data = await readExcelFile(file);
+                <div class="section">
+                    <h3>💻 Lightspeed Export Sheets</h3>
+                    <div class="file-upload">
+                        <input type="file" multiple accept=".xlsx,.xls,.csv" onchange="handleUpload('lightspeedExports', this)">
+                    </div>
+                    <div id="lightspeedExports-list" class="file-list"></div>
+                </div>
+            </div>
+
+            <div class="btn-row">
+                <button class="btn btn-primary" onclick="processInventory()">⚙️ Process Inventory</button>
+                <button class="btn btn-success" id="download-btn" onclick="downloadCSV()" disabled>📥 Download Shopify CSV</button>
+                <button class="btn btn-danger" onclick="clearAll()">🗑️ Clear All</button>
+            </div>
+
+            <div id="status"></div>
+            <div id="preview" class="section hidden"></div>
+        </div>
+
+        <div id="storage-tab" class="hidden">
+            <div class="section" style="background: linear-gradient(135deg, #667eea15, #764ba215);">
+                <h2>💾 Backup & Restore</h2>
+                <p style="margin: 15px 0; color: #666;">Export your master files and images as a backup file. Import on any computer or share with employees.</p>
+                <div class="btn-row">
+                    <button class="btn btn-primary" onclick="exportBackup()">📤 Export Backup</button>
+                    <button class="btn btn-success" onclick="document.getElementById('import-input').click()">📥 Import Backup</button>
+                    <button class="btn btn-danger" onclick="clearAllStorage()">🗑️ Clear All Data</button>
+                </div>
+                <input type="file" id="import-input" accept=".json" onchange="importBackup(this)" style="display:none">
+            </div>
+
+            <div class="section">
+                <h2>📋 Store Master Files</h2>
+                <p style="margin: 15px 0; color: #666;">Upload supplier master files to store permanently. These will automatically enhance your inventory imports.</p>
+                <input type="file" multiple accept=".xlsx,.xls,.csv" onchange="storeMasterFiles(this)">
+                <div id="stored-masters"></div>
+            </div>
+
+            <div class="section">
+                <h2>🖼️ Store Product Images</h2>
+                <p style="margin: 15px 0; color: #666;">Upload bulk product images. Name files using SKU, UPC, or product name for automatic matching.</p>
+                <input type="file" multiple accept="image/*" onchange="storeImages(this)">
+                <div id="stored-images" class="image-grid"></div>
+            </div>
+        </div>
+
+        <div class="instructions">
+            <h3>📋 Instructions</h3>
+            <ol>
+                <li><strong>First time setup:</strong> Go to "Stored Data" tab and upload master files and product images</li>
+                <li>Name image files with SKU, UPC, or product name for automatic matching</li>
+                <li>Upload your current inventory files in the "Upload Files" tab</li>
+                <li>Click "Process Inventory" - the system will auto-match images and data</li>
+                <li>Review the preview to ensure accuracy</li>
+                <li>Click "Download Shopify CSV" to get your import file</li>
+                <li>In Shopify, go to Products → Import and upload the CSV</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        const files = { invoices: [], masterFiles: [], inventorySheets: [], lightspeedExports: [] };
+        let storedMasters = [];
+        let storedImages = [];
+        let processedData = [];
+
+        async function loadStoredData() {
+            try {
+                const masterResult = await window.storage.list('master-file:');
+                const imageResult = await window.storage.list('image:');
+                
+                if (masterResult?.keys) {
+                    storedMasters = await Promise.all(
+                        masterResult.keys.map(async (key) => {
+                            const result = await window.storage.get(key);
+                            return result ? JSON.parse(result.value) : null;
+                        })
+                    );
+                    storedMasters = storedMasters.filter(f => f);
+                }
+                
+                if (imageResult?.keys) {
+                    storedImages = await Promise.all(
+                        imageResult.keys.map(async (key) => {
+                            const result = await window.storage.get(key);
+                            return result ? JSON.parse(result.value) : null;
+                        })
+                    );
+                    storedImages = storedImages.filter(i => i);
+                }
+                
+                updateStoredDataDisplay();
+            } catch (error) {
+                console.log('No stored data found:', error);
+            }
         }
-        
-        const headers = data[0].map(h => String(h || '').trim().toLowerCase());
-        const products = [];
-        
-        for (let i = 1; i < data.length; i++) {
-          const row = data[i];
-          if (!row || row.length === 0) continue;
-          
-          const item = {};
-          headers.forEach((header, index) => {
-            item[header] = row[index];
-          });
-          products.push(item);
-        }
-        
-        const masterFileData = {
-          fileName: file.name,
-          uploadDate: new Date().toISOString(),
-          productCount: products.length,
-          products: products
-        };
-        
-        await window.storage.set(
-          `master-file:${file.name}`,
-          JSON.stringify(masterFileData)
-        );
-        
-        setStatus(`Stored master file: ${file.name} (${products.length} products)`);
-        loadStoredData();
-      } catch (error) {
-        setStatus(`Error storing ${file.name}: ${error.message}`);
-      }
-    }
-  };
 
-  const handleImageFolderUpload = async (event) => {
-    const uploadedFiles = Array.from(event.target.files);
-    
-    for (const file of uploadedFiles) {
-      if (file.type.startsWith('image/')) {
-        try {
-          const reader = new FileReader();
-          reader.onload = async (e) => {
-            const imageData = {
-              fileName: file.name,
-              uploadDate: new Date().toISOString(),
-              dataUrl: e.target.result,
-              size: file.size,
-              type: file.type,
-              // Extract SKU or product identifier from filename
-              identifier: file.name.split('.')[0].toLowerCase().replace(/[^a-z0-9]/g, '')
+        function updateStoredDataDisplay() {
+            document.getElementById('stored-count').textContent = `${storedMasters.length} files, ${storedImages.length} images`;
+            
+            const mastersDiv = document.getElementById('stored-masters');
+            mastersDiv.innerHTML = storedMasters.map((m, i) => `
+                <div class="stored-item">
+                    <button onclick="deleteMaster(${i})">Delete</button>
+                    <strong>${m.fileName}</strong><br>
+                    <small>${m.productCount} products • ${new Date(m.uploadDate).toLocaleDateString()}</small>
+                </div>
+            `).join('');
+            
+            const imagesDiv = document.getElementById('stored-images');
+            imagesDiv.innerHTML = storedImages.map((img, i) => `
+                <div class="image-item">
+                    <img src="${img.dataUrl}" alt="${img.fileName}">
+                    <button onclick="deleteImage(${i})">×</button>
+                    <div style="font-size:11px; margin-top:5px;">${img.fileName}</div>
+                </div>
+            `).join('');
+        }
+
+        function showTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById('upload-tab').classList.toggle('hidden', tab !== 'upload');
+            document.getElementById('storage-tab').classList.toggle('hidden', tab !== 'storage');
+        }
+
+        function handleUpload(category, input) {
+            const newFiles = Array.from(input.files);
+            files[category] = [...files[category], ...newFiles];
+            updateFileList(category);
+            showStatus(`Added ${newFiles.length} file(s)`, 'success');
+        }
+
+        function updateFileList(category) {
+            const list = document.getElementById(`${category}-list`);
+            list.innerHTML = files[category].map((file, i) => `
+                <div class="file-item">
+                    <span>${file.name}</span>
+                    <button onclick="removeFile('${category}', ${i})">Remove</button>
+                </div>
+            `).join('');
+        }
+
+        function removeFile(category, index) {
+            files[category].splice(index, 1);
+            updateFileList(category);
+        }
+
+        function showStatus(msg, type = 'success') {
+            const status = document.getElementById('status');
+            status.className = `status ${type}`;
+            status.textContent = msg;
+        }
+
+        async function storeMasterFiles(input) {
+            for (const file of input.files) {
+                try {
+                    const data = file.name.endsWith('.csv') 
+                        ? await readCSV(file)
+                        : await readExcel(file);
+                    
+                    const headers = data[0].map(h => String(h || '').trim().toLowerCase());
+                    const products = data.slice(1).map(row => {
+                        const item = {};
+                        headers.forEach((h, i) => item[h] = row[i]);
+                        return item;
+                    });
+                    
+                    const masterData = {
+                        fileName: file.name,
+                        uploadDate: new Date().toISOString(),
+                        productCount: products.length,
+                        products
+                    };
+                    
+                    await window.storage.set(`master-file:${file.name}`, JSON.stringify(masterData));
+                    showStatus(`Stored ${file.name} (${products.length} products)`, 'success');
+                } catch (error) {
+                    showStatus(`Error: ${error.message}`, 'error');
+                }
+            }
+            loadStoredData();
+        }
+
+        async function storeImages(input) {
+            for (const file of input.files) {
+                if (!file.type.startsWith('image/')) continue;
+                
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    const imageData = {
+                        fileName: file.name,
+                        uploadDate: new Date().toISOString(),
+                        dataUrl: e.target.result,
+                        identifier: file.name.split('.')[0].toLowerCase().replace(/[^a-z0-9]/g, '')
+                    };
+                    await window.storage.set(`image:${imageData.identifier}`, JSON.stringify(imageData));
+                    loadStoredData();
+                };
+                reader.readAsDataURL(file);
+            }
+            showStatus(`Storing ${input.files.length} images...`, 'success');
+        }
+
+        async function deleteMaster(index) {
+            await window.storage.delete(`master-file:${storedMasters[index].fileName}`);
+            loadStoredData();
+        }
+
+        async function deleteImage(index) {
+            await window.storage.delete(`image:${storedImages[index].identifier}`);
+            loadStoredData();
+        }
+
+        async function exportBackup() {
+            const backup = {
+                version: '1.0',
+                exportDate: new Date().toISOString(),
+                masterFiles: storedMasters,
+                images: storedImages
             };
             
-            await window.storage.set(
-              `image:${imageData.identifier}`,
-              JSON.stringify(imageData)
-            );
-            
-            loadStoredData();
-          };
-          reader.readAsDataURL(file);
-        } catch (error) {
-          console.error(`Error storing image ${file.name}:`, error);
+            const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `bike-shop-backup-${Date.now()}.json`;
+            a.click();
+            showStatus(`Backup created! (${storedMasters.length} files, ${storedImages.length} images)`, 'success');
         }
-      }
-    }
-    
-    setStatus(`Stored ${uploadedFiles.filter(f => f.type.startsWith('image/')).length} images`);
-  };
 
-  const deleteMasterFile = async (fileName) => {
-    try {
-      await window.storage.delete(`master-file:${fileName}`);
-      loadStoredData();
-      setStatus(`Deleted master file: ${fileName}`);
-    } catch (error) {
-      setStatus(`Error deleting file: ${error.message}`);
-    }
-  };
-
-  const deleteImage = async (identifier) => {
-    try {
-      await window.storage.delete(`image:${identifier}`);
-      loadStoredData();
-      setStatus(`Deleted image: ${identifier}`);
-    } catch (error) {
-      setStatus(`Error deleting image: ${error.message}`);
-    }
-  };
-
-  const exportBackup = async () => {
-    try {
-      setStatus('Creating backup...');
-      
-      const backup = {
-        version: '1.0',
-        exportDate: new Date().toISOString(),
-        masterFiles: storedMasterFiles,
-        images: storedImages
-      };
-      
-      const json = JSON.stringify(backup, null, 2);
-      const blob = new Blob([json], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      
-      link.href = url;
-      link.download = `bike-shop-backup-${Date.now()}.json`;
-      link.click();
-      
-      URL.revokeObjectURL(url);
-      setStatus(`Backup created successfully! (${storedMasterFiles.length} master files, ${storedImages.length} images)`);
-    } catch (error) {
-      setStatus(`Error creating backup: ${error.message}`);
-    }
-  };
-
-  const importBackup = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-    
-    try {
-      setImporting(true);
-      setStatus('Importing backup...');
-      
-      const text = await file.text();
-      const backup = JSON.parse(text);
-      
-      if (!backup.version || !backup.masterFiles || !backup.images) {
-        throw new Error('Invalid backup file format');
-      }
-      
-      // Import master files
-      for (const masterFile of backup.masterFiles) {
-        await window.storage.set(
-          `master-file:${masterFile.fileName}`,
-          JSON.stringify(masterFile)
-        );
-      }
-      
-      // Import images
-      for (const image of backup.images) {
-        await window.storage.set(
-          `image:${image.identifier}`,
-          JSON.stringify(image)
-        );
-      }
-      
-      await loadStoredData();
-      setStatus(`Successfully imported ${backup.masterFiles.length} master files and ${backup.images.length} images!`);
-    } catch (error) {
-      setStatus(`Error importing backup: ${error.message}`);
-    } finally {
-      setImporting(false);
-      event.target.value = '';
-    }
-  };
-
-  const clearAllStorage = async () => {
-    if (!confirm('Are you sure you want to delete ALL stored master files and images? This cannot be undone!')) {
-      return;
-    }
-    
-    try {
-      const masterResult = await window.storage.list('master-file:');
-      const imageResult = await window.storage.list('image:');
-      
-      if (masterResult && masterResult.keys) {
-        for (const key of masterResult.keys) {
-          await window.storage.delete(key);
-        }
-      }
-      
-      if (imageResult && imageResult.keys) {
-        for (const key of imageResult.keys) {
-          await window.storage.delete(key);
-        }
-      }
-      
-      setStoredMasterFiles([]);
-      setStoredImages([]);
-      setStatus('All stored data has been deleted');
-    } catch (error) {
-      setStatus(`Error clearing storage: ${error.message}`);
-    }
-  };
-
-  const removeFile = (category, index) => {
-    setFiles(prev => ({
-      ...prev,
-      [category]: prev[category].filter((_, i) => i !== index)
-    }));
-  };
-
-  const readExcelFile = (file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const data = new Uint8Array(e.target.result);
-          const workbook = XLSX.read(data, { type: 'array' });
-          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-          const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
-          resolve(jsonData);
-        } catch (error) {
-          reject(error);
-        }
-      };
-      reader.onerror = reject;
-      reader.readAsArrayBuffer(file);
-    });
-  };
-
-  const readCSVFile = (file) => {
-    return new Promise((resolve, reject) => {
-      Papaparse.parse(file, {
-        complete: (results) => resolve(results.data),
-        error: reject,
-        skipEmptyLines: true
-      });
-    });
-  };
-
-  const findMatchingImage = (item) => {
-    const sku = String(item.sku || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-    const name = String(item.name || item.title || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-    const upc = String(item.upc || item.barcode || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-    
-    const match = storedImages.find(img => {
-      const id = img.identifier;
-      return id === sku || id === name || id === upc || 
-             id.includes(sku) || id.includes(name) || id.includes(upc) ||
-             sku.includes(id) || name.includes(id) || upc.includes(id);
-    });
-    
-    return match ? match.dataUrl : '';
-  };
-
-  const findMasterFileData = (item) => {
-    const sku = String(item.sku || '').toLowerCase().trim();
-    const upc = String(item.upc || item.barcode || '').toLowerCase().trim();
-    const name = String(item.name || item.title || '').toLowerCase().trim();
-    
-    for (const masterFile of storedMasterFiles) {
-      const match = masterFile.products.find(product => {
-        const pSku = String(product.sku || '').toLowerCase().trim();
-        const pUpc = String(product.upc || product.barcode || '').toLowerCase().trim();
-        const pName = String(product.name || product.title || '').toLowerCase().trim();
-        
-        return (sku && pSku === sku) || 
-               (upc && pUpc === upc) ||
-               (name && pName === name);
-      });
-      
-      if (match) return match;
-    }
-    
-    return null;
-  };
-
-  const extractDataFromFiles = async () => {
-    const allData = [];
-    
-    const sheetsToProcess = [
-      ...files.inventorySheets,
-      ...files.lightspeedExports
-    ];
-
-    for (const file of sheetsToProcess) {
-      try {
-        let data;
-        if (file.name.endsWith('.csv')) {
-          data = await readCSVFile(file);
-        } else {
-          data = await readExcelFile(file);
-        }
-        
-        if (data.length > 1) {
-          const headers = data[0].map(h => String(h || '').trim().toLowerCase());
-          
-          for (let i = 1; i < data.length; i++) {
-            const row = data[i];
-            if (!row || row.length === 0) continue;
-            
-            const item = {};
-            headers.forEach((header, index) => {
-              item[header] = row[index];
-            });
-            
-            // Enhance with master file data
-            const masterData = findMasterFileData(item);
-            if (masterData) {
-              Object.keys(masterData).forEach(key => {
-                if (!item[key] || item[key] === '') {
-                  item[key] = masterData[key];
+        async function importBackup(input) {
+            try {
+                const text = await input.files[0].text();
+                const backup = JSON.parse(text);
+                
+                for (const m of backup.masterFiles) {
+                    await window.storage.set(`master-file:${m.fileName}`, JSON.stringify(m));
                 }
-              });
+                for (const img of backup.images) {
+                    await window.storage.set(`image:${img.identifier}`, JSON.stringify(img));
+                }
+                
+                loadStoredData();
+                showStatus(`Imported ${backup.masterFiles.length} files and ${backup.images.length} images!`, 'success');
+            } catch (error) {
+                showStatus(`Import error: ${error.message}`, 'error');
+            }
+        }
+
+        async function clearAllStorage() {
+            if (!confirm('Delete ALL stored data? This cannot be undone!')) return;
+            
+            const masterResult = await window.storage.list('master-file:');
+            const imageResult = await window.storage.list('image:');
+            
+            if (masterResult?.keys) {
+                for (const key of masterResult.keys) await window.storage.delete(key);
+            }
+            if (imageResult?.keys) {
+                for (const key of imageResult.keys) await window.storage.delete(key);
             }
             
-            allData.push(item);
-          }
+            storedMasters = [];
+            storedImages = [];
+            updateStoredDataDisplay();
+            showStatus('All stored data deleted', 'success');
         }
-      } catch (error) {
-        console.error(`Error processing ${file.name}:`, error);
-      }
-    }
-    
-    return allData;
-  };
 
-  const generateSKU = (item, index) => {
-    if (item.sku) return item.sku;
-    const brand = String(item.brand || item.manufacturer || '').substring(0, 3).toUpperCase();
-    const name = String(item.name || item.title || item.description || '').substring(0, 3).toUpperCase();
-    const timestamp = Date.now().toString().slice(-4);
-    return `${brand}${name}${timestamp}${index}`.replace(/\s/g, '');
-  };
-
-  const generateTags = (item) => {
-    const tags = new Set();
-    
-    if (item.brand || item.manufacturer) {
-      tags.add(String(item.brand || item.manufacturer).trim());
-    }
-    
-    if (item.category || item.type) {
-      tags.add(String(item.category || item.type).trim());
-    }
-    
-    const name = String(item.name || item.description || '').toLowerCase();
-    const bikeTerms = ['tire', 'wheel', 'brake', 'chain', 'pedal', 'saddle', 'handlebar', 
-                       'fork', 'frame', 'gear', 'derailleur', 'cassette', 'crankset', 
-                       'helmet', 'light', 'lock', 'pump', 'tube', 'rim'];
-    
-    bikeTerms.forEach(term => {
-      if (name.includes(term)) {
-        tags.add(term.charAt(0).toUpperCase() + term.slice(1));
-      }
-    });
-    
-    return Array.from(tags).join(', ');
-  };
-
-  const generateSEOTitle = (item) => {
-    const brand = item.brand || item.manufacturer || '';
-    const name = item.name || item.title || item.description || 'Product';
-    const category = item.category || item.type || '';
-    
-    return `${brand} ${name} ${category}`.trim().substring(0, 70);
-  };
-
-  const generateSEODescription = (item) => {
-    const brand = item.brand || item.manufacturer || '';
-    const name = item.name || item.title || item.description || 'Product';
-    const category = item.category || item.type || '';
-    
-    return `Shop ${brand} ${name} - High-quality ${category} for your bike. Premium cycling parts and accessories at competitive prices.`.substring(0, 320);
-  };
-
-  const generateDescription = (item) => {
-    let desc = `<h2>${item.name || item.title || 'Product'}</h2>`;
-    
-    if (item.brand || item.manufacturer) {
-      desc += `<p><strong>Brand:</strong> ${item.brand || item.manufacturer}</p>`;
-    }
-    
-    if (item.description) {
-      desc += `<p>${item.description}</p>`;
-    }
-    
-    desc += `<h3>Specifications</h3><ul>`;
-    
-    Object.keys(item).forEach(key => {
-      if (!['name', 'title', 'description', 'brand', 'manufacturer', 'price', 'cost'].includes(key) && item[key]) {
-        desc += `<li><strong>${key}:</strong> ${item[key]}</li>`;
-      }
-    });
-    
-    desc += `</ul>`;
-    return desc;
-  };
-
-  const processInventory = async () => {
-    setProcessing(true);
-    setStatus('Processing files...');
-    
-    try {
-      const extractedData = await extractDataFromFiles();
-      
-      if (extractedData.length === 0) {
-        setStatus('No data found in uploaded files');
-        setProcessing(false);
-        return;
-      }
-
-      const shopifyData = extractedData.map((item, index) => {
-        const imageUrl = findMatchingImage(item) || item['image url'] || item.image || '';
-        
-        return {
-          'Handle': (item.sku || generateSKU(item, index)).toLowerCase().replace(/\s/g, '-'),
-          'Title': item.name || item.title || item.description || 'Untitled Product',
-          'Body (HTML)': generateDescription(item),
-          'Vendor': item.brand || item.manufacturer || item.vendor || 'Unknown',
-          'Type': item.type || item.category || 'Bike Parts',
-          'Tags': generateTags(item),
-          'Published': 'TRUE',
-          'Option1 Name': 'Size',
-          'Option1 Value': item.size || 'Standard',
-          'Option2 Name': 'Color',
-          'Option2 Value': item.color || 'Default',
-          'Variant SKU': item.sku || generateSKU(item, index),
-          'Variant Grams': item.weight || '',
-          'Variant Inventory Tracker': 'shopify',
-          'Variant Inventory Qty': item.quantity || item.qty || 1,
-          'Variant Inventory Policy': 'deny',
-          'Variant Fulfillment Service': 'manual',
-          'Variant Price': item.price || item['retail price'] || item.msrp || '',
-          'Variant Compare At Price': item.msrp || item['compare at price'] || '',
-          'Variant Requires Shipping': 'TRUE',
-          'Variant Taxable': 'TRUE',
-          'Variant Barcode': item.barcode || item.upc || item.ean || '',
-          'Image Src': imageUrl,
-          'Image Position': '1',
-          'Image Alt Text': `${item.brand || ''} ${item.name || 'product'}`.trim(),
-          'Gift Card': 'FALSE',
-          'SEO Title': generateSEOTitle(item),
-          'SEO Description': generateSEODescription(item),
-          'Variant Weight Unit': 'kg',
-          'Variant Tax Code': '',
-          'Cost per item': item.cost || item['cost price'] || '',
-          'Status': 'active'
-        };
-      });
-
-      setProcessedData(shopifyData);
-      setStatus(`Successfully processed ${shopifyData.length} products with ${shopifyData.filter(p => p['Image Src']).length} matched images!`);
-    } catch (error) {
-      setStatus(`Error processing files: ${error.message}`);
-      console.error(error);
-    }
-    
-    setProcessing(false);
-  };
-
-  const downloadCSV = () => {
-    if (processedData.length === 0) return;
-
-    const csv = Papaparse.unparse(processedData);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    
-    link.setAttribute('href', url);
-    link.setAttribute('download', `shopify_import_${Date.now()}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const clearAll = () => {
-    setFiles({
-      invoices: [],
-      masterFiles: [],
-      inventorySheets: [],
-      lightspeedExports: [],
-      packingLists: []
-    });
-    setProcessedData([]);
-    setStatus('');
-  };
-
-  const FileUploadSection = ({ title, category, accept }) => (
-    <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-      <h3 className="font-semibold mb-2 flex items-center gap-2">
-        <FileText size={18} />
-        {title}
-      </h3>
-      <input
-        type="file"
-        multiple
-        accept={accept}
-        onChange={(e) => handleFileUpload(category, e)}
-        className="mb-2 text-sm"
-      />
-      <div className="mt-2">
-        {files[category].map((file, index) => (
-          <div key={index} className="flex items-center justify-between bg-white p-2 mb-1 rounded">
-            <span className="text-sm truncate flex-1">{file.name}</span>
-            <button
-              onClick={() => removeFile(category, index)}
-              className="ml-2 text-red-500 hover:text-red-700"
-            >
-              <Trash2 size={16} />
-            </button>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-
-  const totalFiles = Object.values(files).reduce((sum, arr) => sum + arr.length, 0);
-
-  return (
-    <div className="max-w-6xl mx-auto p-6 bg-white">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Bike Shop Inventory Importer</h1>
-        <p className="text-gray-600">Upload your files and generate a Shopify-ready CSV in seconds</p>
-      </div>
-
-      <div className="flex gap-2 mb-6 border-b">
-        <button
-          onClick={() => setActiveTab('upload')}
-          className={`px-4 py-2 font-semibold ${activeTab === 'upload' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600'}`}
-        >
-          <Upload size={18} className="inline mr-2" />
-          Upload Files
-        </button>
-        <button
-          onClick={() => setActiveTab('storage')}
-          className={`px-4 py-2 font-semibold ${activeTab === 'storage' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600'}`}
-        >
-          <Database size={18} className="inline mr-2" />
-          Stored Data ({storedMasterFiles.length} files, {storedImages.length} images)
-        </button>
-      </div>
-
-      {activeTab === 'upload' && (
-        <>
-          <div className="grid md:grid-cols-2 gap-6 mb-6">
-            <div>
-              <FileUploadSection
-                title="Invoices"
-                category="invoices"
-                accept=".pdf,.xlsx,.xls,.csv"
-              />
-              <FileUploadSection
-                title="Supplier Master Files"
-                category="masterFiles"
-                accept=".xlsx,.xls,.csv"
-              />
-              <FileUploadSection
-                title="Excel Inventory Sheets"
-                category="inventorySheets"
-                accept=".xlsx,.xls,.csv"
-              />
-            </div>
+        async function processInventory() {
+            showStatus('Processing files...', 'success');
+            const allData = [];
             
-            <div>
-              <FileUploadSection
-                title="Lightspeed Export Sheets"
-                category="lightspeedExports"
-                accept=".xlsx,.xls,.csv"
-              />
-              <FileUploadSection
-                title="Scanned Packing Lists"
-                category="packingLists"
-                accept=".pdf,.jpg,.jpeg,.png"
-              />
-            </div>
-          </div>
-
-          <div className="flex gap-4 mb-6">
-            <button
-              onClick={processInventory}
-              disabled={processing || totalFiles === 0}
-              className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              <Upload size={20} />
-              {processing ? 'Processing...' : 'Process Inventory'}
-            </button>
+            const sheetsToProcess = [...files.inventorySheets, ...files.lightspeedExports];
             
-            <button
-              onClick={downloadCSV}
-              disabled={processedData.length === 0}
-              className="flex-1 bg-green-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              <Download size={20} />
-              Download Shopify CSV
-            </button>
+            for (const file of sheetsToProcess) {
+                const data = file.name.endsWith('.csv') ? await readCSV(file) : await readExcel(file);
+                const headers = data[0].map(h => String(h || '').trim().toLowerCase());
+                
+                for (let i = 1; i < data.length; i++) {
+                    if (!data[i] || data[i].length === 0) continue;
+                    const item = {};
+                    headers.forEach((h, idx) => item[h] = data[i][idx]);
+                    
+                    // Enhance with master file data
+                    const masterData = findMasterData(item);
+                    if (masterData) {
+                        Object.keys(masterData).forEach(k => {
+                            if (!item[k]) item[k] = masterData[k];
+                        });
+                    }
+                    
+                    allData.push(item);
+                }
+            }
             
-            <button
-              onClick={clearAll}
-              className="bg-gray-500 text-white py-3 px-6 rounded-lg font-semibold hover:bg-gray-600 flex items-center justify-center gap-2"
-            >
-              <Trash2 size={20} />
-              Clear All
-            </button>
-          </div>
-        </>
-      )}
-
-      {activeTab === 'storage' && (
-        <div className="space-y-6">
-          <div className="p-6 bg-purple-50 border border-purple-200 rounded-lg">
-            <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-              <Download size={24} />
-              Backup & Restore
-            </h2>
-            <p className="text-sm text-gray-700 mb-4">
-              Export your master files and images as a backup file. Import on any computer or share with employees.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={exportBackup}
-                disabled={storedMasterFiles.length === 0 && storedImages.length === 0}
-                className="bg-purple-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                <Download size={18} />
-                Export Backup
-              </button>
-              
-              <label className="bg-green-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-green-700 cursor-pointer flex items-center gap-2">
-                <Upload size={18} />
-                {importing ? 'Importing...' : 'Import Backup'}
-                <input
-                  type="file"
-                  accept=".json"
-                  onChange={importBackup}
-                  disabled={importing}
-                  className="hidden"
-                />
-              </label>
-              
-              <button
-                onClick={clearAllStorage}
-                className="bg-red-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-red-700 flex items-center gap-2"
-              >
-                <Trash2 size={18} />
-                Clear All Data
-              </button>
-            </div>
-          </div>
-
-          <div className="p-6 bg-blue-50 border border-blue-200 rounded-lg">
-            <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-              <Database size={24} />
-              Store Master Files
-            </h2>
-            <p className="text-sm text-gray-700 mb-4">
-              Upload supplier master files to store permanently. These will automatically enhance your inventory imports with pricing, descriptions, and product details.
-            </p>
-            <input
-              type="file"
-              multiple
-              accept=".xlsx,.xls,.csv"
-              onChange={handleMasterFileStorage}
-              className="mb-2"
-            />
+            if (allData.length === 0) {
+                showStatus('No data found in files', 'error');
+                return;
+            }
             
-            {storedMasterFiles.length > 0 && (
-              <div className="mt-4">
-                <h3 className="font-semibold mb-2">Stored Master Files:</h3>
-                {storedMasterFiles.map((file, index) => (
-                  <div key={index} className="flex items-center justify-between bg-white p-3 mb-2 rounded border">
-                    <div className="flex-1">
-                      <div className="font-semibold">{file.fileName}</div>
-                      <div className="text-sm text-gray-600">
-                        {file.productCount} products • Uploaded {new Date(file.uploadDate).toLocaleDateString()}
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => deleteMasterFile(file.fileName)}
-                      className="ml-4 text-red-500 hover:text-red-700"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="p-6 bg-green-50 border border-green-200 rounded-lg">
-            <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-              <Camera size={24} />
-              Store Product Images
-            </h2>
-            <p className="text-sm text-gray-700 mb-4">
-              Upload bulk product images. Name files using SKU, UPC, or product name for automatic matching. The system will automatically link images to products during import.
-            </p>
-            <input
-              type="file"
-              multiple
-              accept="image/*"
-              onChange={handleImageFolderUpload}
-              className="mb-2"
-              webkitdirectory=""
-              directory=""
-            />
+            processedData = allData.map((item, i) => ({
+                'Handle': (item.sku || generateSKU(item, i)).toLowerCase().replace(/\s/g, '-'),
+                'Title': item.name || item.title || 'Product',
+                'Body (HTML)': generateDescription(item),
+                'Vendor': item.brand || item.manufacturer || 'Unknown',
+                'Type': item.type || item.category || 'Bike Parts',
+                'Tags': generateTags(item),
+                'Published': 'TRUE',
+                'Variant SKU': item.sku || generateSKU(item, i),
+                'Variant Inventory Qty': item.quantity || item.qty || 1,
+                'Variant Price': item.price || item['retail price'] || '',
+                'Variant Barcode': item.barcode || item.upc || '',
+                'Image Src': findMatchingImage(item),
+                'SEO Title': generateSEOTitle(item),
+                'SEO Description': generateSEODescription(item),
+                'Status': 'active'
+            }));
             
-            {storedImages.length > 0 && (
-              <div className="mt-4">
-                <h3 className="font-semibold mb-2">Stored Images ({storedImages.length}):</h3>
-                <div className="grid grid-cols-4 gap-3 max-h-96 overflow-y-auto">
-                  {storedImages.map((img, index) => (
-                    <div key={index} className="relative group">
-                      <img 
-                        src={img.dataUrl} 
-                        alt={img.fileName}
-                        className="w-full h-24 object-cover rounded border"
-                      />
-                      <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity rounded flex items-center justify-center">
-                        <button
-                          onClick={() => deleteImage(img.identifier)}
-                          className="text-white hover:text-red-300"
-                        >
-                          <Trash2 size={20} />
-                        </button>
-                      </div>
-                      <div className="text-xs truncate mt-1">{img.fileName}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+            document.getElementById('download-btn').disabled = false;
+            showPreview();
+            showStatus(`Processed ${processedData.length} products!`, 'success');
+        }
 
-      {status && (
-        <div className={`p-4 rounded-lg flex items-center gap-2 mb-6 ${
-          status.includes('Error') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
-        }`}>
-          {status.includes('Error') ? <AlertCircle size={20} /> : <CheckCircle size={20} />}
-          {status}
-        </div>
-      )}
+        function findMasterData(item) {
+            const sku = String(item.sku || '').toLowerCase();
+            const upc = String(item.upc || '').toLowerCase();
+            
+            for (const master of storedMasters) {
+                const match = master.products.find(p => 
+                    String(p.sku || '').toLowerCase() === sku || 
+                    String(p.upc || '').toLowerCase() === upc
+                );
+                if (match) return match;
+            }
+            return null;
+        }
 
-      {processedData.length > 0 && (
-        <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-          <h3 className="font-semibold mb-2">Preview ({processedData.length} products)</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-blue-100">
-                  <th className="p-2 text-left">Image</th>
-                  <th className="p-2 text-left">SKU</th>
-                  <th className="p-2 text-left">Title</th>
-                  <th className="p-2 text-left">Vendor</th>
-                  <th className="p-2 text-left">Type</th>
-                  <th className="p-2 text-left">Price</th>
-                  <th className="p-2 text-left">Qty</th>
-                </tr>
-              </thead>
-              <tbody>
-                {processedData.slice(0, 10).map((item, index) => (
-                  <tr key={index} className="border-b">
-                    <td className="p-2">
-                      {item['Image Src'] && (
-                        <img src={item['Image Src']} alt="" className="w-12 h-12 object-cover rounded" />
-                      )}
-                    </td>
-                    <td className="p-2">{item['Variant SKU']}</td>
-                    <td className="p-2">{item.Title}</td>
-                    <td className="p-2">{item.Vendor}</td>
-                    <td className="p-2">{item.Type}</td>
-                    <td className="p-2">${item['Variant Price']}</td>
-                    <td className="p-2">{item['Variant Inventory Qty']}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {processedData.length > 10 && (
-              <p className="text-gray-600 mt-2 text-center">+ {processedData.length - 10} more products</p>
-            )}
-          </div>
-        </div>
-      )}
+        function findMatchingImage(item) {
+            const sku = String(item.sku || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            const match = storedImages.find(img => 
+                img.identifier === sku || img.identifier.includes(sku) || sku.includes(img.identifier)
+            );
+            return match ? match.dataUrl : '';
+        }
 
-      <div className="mt-8 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-        <h3 className="font-semibold mb-2 text-yellow-800">📋 Instructions</h3>
-        <ol className="text-sm text-yellow-900 space-y-1 list-decimal list-inside">
-          <li><strong>First time setup:</strong> Go to "Stored Data" tab and upload master files and product images</li>
-          <li>Name image files with SKU, UPC, or product name for automatic matching</li>
-          <li>Upload your current inventory files in the "Upload Files" tab</li>
-          <li>Click "Process Inventory" - the system will auto-match images and data from stored files</li>
-          <li>Review the preview to ensure accuracy</li>
-          <li>Click "Download Shopify CSV" to get your import file</li>
-          <li>In Shopify, go to Products → Import and upload the CSV</li>
-        </ol>
-      </div>
-    </div>
-  );
-};
+        function generateSKU(item, i) {
+            return item.sku || `${String(item.brand || '').substring(0,3)}${Date.now()}${i}`.replace(/\s/g, '');
+        }
 
-export default BikeInventoryImporter;
+        function generateTags(item) {
+            const tags = new Set();
+            if (item.brand) tags.add(item.brand);
+            if (item.category) tags.add(item.category);
+            return Array.from(tags).join(', ');
+        }
+
+        function generateSEOTitle(item) {
+            return `${item.brand || ''} ${item.name || 'Product'}`.trim().substring(0, 70);
+        }
+
+        function generateSEODescription(item) {
+            return `Shop ${item.brand || ''} ${item.name || 'product'} at competitive prices.`.substring(0, 320);
+        }
+
+        function generateDescription(item) {
+            let html = `<h2>${item.name || 'Product'}</h2>`;
+            if (item.brand) html += `<p><strong>Brand:</strong> ${item.brand}</p>`;
+            if (item.description) html += `<p>${item.description}</p>`;
+            return html;
+        }
+
+        function showPreview() {
+            const preview = document.getElementById('preview');
+            preview.classList.remove('hidden');
+            preview.innerHTML = `
+                <h3>Preview (${processedData.length} products)</h3>
+                <table>
+                    <tr><th>SKU</th><th>Title</th><th>Vendor</th><th>Price</th><th>Qty</th></tr>
+                    ${processedData.slice(0, 10).map(p => `
+                        <tr>
+                            <td>${p['Variant SKU']}</td>
+                            <td>${p.Title}</td>
+                            <td>${p.Vendor}</td>
+                            <td>${p['Variant Price']}</td>
+                            <td>${p['Variant Inventory Qty']}</td>
+                        </tr>
+                    `).join('')}
+                </table>
+            `;
+        }
+
+        function downloadCSV() {
+            const csv = Papa.unparse(processedData);
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `shopify_import_${Date.now()}.csv`;
+            a.click();
+        }
+
+        function clearAll() {
+            Object.keys(files).forEach(k => files[k] = []);
+            Object.keys(files).forEach(updateFileList);
+            processedData = [];
+            document.getElementById('preview').classList.add('hidden');
+            document.getElementById('download-btn').disabled = true;
+        }
+
+        function readExcel(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                    resolve(XLSX.utils.sheet_to_json(sheet, { header: 1 }));
+                };
+                reader.onerror = reject;
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        function readCSV(file) {
+            return new Promise((resolve, reject) => {
+                Papa.parse(file, {
+                    complete: (r) => resolve(r.data),
+                    error: reject,
+                    skipEmptyLines: true
+                });
+            });
+        }
+
+        loadStoredData();
+    </script>
+</body>
+</html>
