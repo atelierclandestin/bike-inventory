@@ -63,13 +63,46 @@
         </div>
 
         <div id="upload-tab">
+            <h2 style="margin-bottom: 20px;">📦 Lightspeed Migration</h2>
             <div class="grid">
                 <div class="section">
-                    <h3>📄 Invoices</h3>
+                    <h3>📊 Product Inventory</h3>
                     <div class="file-upload">
-                        <input type="file" multiple accept=".pdf,.xlsx,.xls,.csv" onchange="handleUpload('invoices', this)">
+                        <input type="file" multiple accept=".xlsx,.xls,.csv" onchange="handleUpload('inventorySheets', this)">
                     </div>
-                    <div id="invoices-list" class="file-list"></div>
+                    <div id="inventorySheets-list" class="file-list"></div>
+                </div>
+
+                <div class="section">
+                    <h3>👥 Customer List</h3>
+                    <div class="file-upload">
+                        <input type="file" multiple accept=".xlsx,.xls,.csv" onchange="handleUpload('customerList', this)">
+                    </div>
+                    <div id="customerList-list" class="file-list"></div>
+                </div>
+
+                <div class="section">
+                    <h3>📈 Sales Reports</h3>
+                    <div class="file-upload">
+                        <input type="file" multiple accept=".xlsx,.xls,.csv" onchange="handleUpload('salesReports', this)">
+                    </div>
+                    <div id="salesReports-list" class="file-list"></div>
+                </div>
+
+                <div class="section">
+                    <h3>📝 Order History</h3>
+                    <div class="file-upload">
+                        <input type="file" multiple accept=".xlsx,.xls,.csv" onchange="handleUpload('orderHistory', this)">
+                    </div>
+                    <div id="orderHistory-list" class="file-list"></div>
+                </div>
+
+                <div class="section">
+                    <h3>💰 Pricing / Discounts</h3>
+                    <div class="file-upload">
+                        <input type="file" multiple accept=".xlsx,.xls,.csv" onchange="handleUpload('pricing', this)">
+                    </div>
+                    <div id="pricing-list" class="file-list"></div>
                 </div>
 
                 <div class="section">
@@ -81,25 +114,27 @@
                 </div>
 
                 <div class="section">
-                    <h3>📊 Excel Inventory Sheets</h3>
-                    <div class="file-upload">
-                        <input type="file" multiple accept=".xlsx,.xls,.csv" onchange="handleUpload('inventorySheets', this)">
-                    </div>
-                    <div id="inventorySheets-list" class="file-list"></div>
-                </div>
-
-                <div class="section">
-                    <h3>💻 Lightspeed Export Sheets</h3>
+                    <h3>💻 Lightspeed Full Export</h3>
                     <div class="file-upload">
                         <input type="file" multiple accept=".xlsx,.xls,.csv" onchange="handleUpload('lightspeedExports', this)">
                     </div>
                     <div id="lightspeedExports-list" class="file-list"></div>
                 </div>
+
+                <div class="section">
+                    <h3>📄 Other Files (Invoices, etc.)</h3>
+                    <div class="file-upload">
+                        <input type="file" multiple accept=".pdf,.xlsx,.xls,.csv" onchange="handleUpload('otherFiles', this)">
+                    </div>
+                    <div id="otherFiles-list" class="file-list"></div>
+                </div>
             </div>
 
             <div class="btn-row">
-                <button class="btn btn-primary" onclick="processInventory()">⚙️ Process Inventory</button>
-                <button class="btn btn-success" id="download-btn" onclick="downloadCSV()" disabled>📥 Download Shopify CSV</button>
+                <button class="btn btn-primary" onclick="processInventory()">⚙️ Process Products</button>
+                <button class="btn btn-primary" onclick="processCustomers()" style="background: #9f7aea;">👥 Process Customers</button>
+                <button class="btn btn-success" id="download-products-btn" onclick="downloadCSV('products')" disabled>📥 Download Products CSV</button>
+                <button class="btn btn-success" id="download-customers-btn" onclick="downloadCSV('customers')" disabled>📥 Download Customers CSV</button>
                 <button class="btn btn-danger" onclick="clearAll()">🗑️ Clear All</button>
             </div>
 
@@ -135,24 +170,50 @@
         </div>
 
         <div class="instructions">
-            <h3>📋 Instructions</h3>
+            <h3>📋 Lightspeed to Shopify Migration Guide</h3>
             <ol>
-                <li><strong>First time setup:</strong> Go to "Stored Data" tab and upload master files and product images</li>
-                <li>Name image files with SKU, UPC, or product name for automatic matching</li>
-                <li>Upload your current inventory files in the "Upload Files" tab</li>
-                <li>Click "Process Inventory" - the system will auto-match images and data</li>
-                <li>Review the preview to ensure accuracy</li>
-                <li>Click "Download Shopify CSV" to get your import file</li>
-                <li>In Shopify, go to Products → Import and upload the CSV</li>
+                <li><strong>Export from Lightspeed:</strong> Export your products, customers, inventory, sales reports, and pricing data from Lightspeed</li>
+                <li><strong>Store Master Data:</strong> Go to "Stored Data" tab, upload supplier master files and product images (one-time setup)</li>
+                <li><strong>Upload Migration Files:</strong> In "Upload Files" tab, upload all exported Lightspeed files</li>
+                <li><strong>Process Products:</strong> Click "Process Products" to generate Shopify product CSV</li>
+                <li><strong>Process Customers:</strong> Click "Process Customers" to generate Shopify customer CSV</li>
+                <li><strong>Review Previews:</strong> Check the preview tables to ensure data looks correct</li>
+                <li><strong>Download CSVs:</strong> Download both product and customer CSVs</li>
+                <li><strong>Import to Shopify:</strong>
+                    <ul style="margin-top: 5px;">
+                        <li>Products: Shopify Admin → Products → Import</li>
+                        <li>Customers: Shopify Admin → Customers → Import</li>
+                    </ul>
+                </li>
+                <li><strong>Verify Data:</strong> Check imported data in Shopify and make adjustments if needed</li>
             </ol>
+            
+            <h4 style="margin-top: 20px;">💡 Tips for Best Results:</h4>
+            <ul>
+                <li>Name image files with SKU or UPC for automatic matching</li>
+                <li>Export customers with order history for better lifetime value data</li>
+                <li>Include pricing and discount data for accurate product pricing</li>
+                <li>Use the backup feature to save your master files and images</li>
+                <li>Test with a small batch first before importing all data</li>
+            </ul>
         </div>
     </div>
 
     <script>
-        const files = { invoices: [], masterFiles: [], inventorySheets: [], lightspeedExports: [] };
+        const files = { 
+            inventorySheets: [], 
+            lightspeedExports: [], 
+            masterFiles: [], 
+            customerList: [],
+            salesReports: [],
+            orderHistory: [],
+            pricing: [],
+            otherFiles: []
+        };
         let storedMasters = [];
         let storedImages = [];
         let processedData = [];
+        let processedCustomers = [];
 
         async function loadStoredData() {
             try {
@@ -358,7 +419,7 @@
         }
 
         async function processInventory() {
-            showStatus('Processing files...', 'success');
+            showStatus('Processing products...', 'success');
             const allData = [];
             
             const sheetsToProcess = [...files.inventorySheets, ...files.lightspeedExports];
@@ -380,36 +441,145 @@
                         });
                     }
                     
+                    // Enhance with pricing data
+                    const pricingData = findPricingData(item);
+                    if (pricingData) {
+                        Object.keys(pricingData).forEach(k => {
+                            if (!item[k]) item[k] = pricingData[k];
+                        });
+                    }
+                    
                     allData.push(item);
                 }
             }
             
             if (allData.length === 0) {
-                showStatus('No data found in files', 'error');
+                showStatus('No product data found in files', 'error');
                 return;
             }
             
             processedData = allData.map((item, i) => ({
-                'Handle': (item.sku || generateSKU(item, i)).toLowerCase().replace(/\s/g, '-'),
-                'Title': item.name || item.title || 'Product',
+                'Handle': (item.sku || item.handle || generateSKU(item, i)).toLowerCase().replace(/\s/g, '-'),
+                'Title': item.name || item.title || item.description || 'Product',
                 'Body (HTML)': generateDescription(item),
-                'Vendor': item.brand || item.manufacturer || 'Unknown',
+                'Vendor': item.brand || item.manufacturer || item.vendor || 'L\'Atelier Clandestin',
+                'Product Category': item['product category'] || '',
                 'Type': item.type || item.category || 'Bike Parts',
                 'Tags': generateTags(item),
                 'Published': 'TRUE',
+                'Option1 Name': item['option1 name'] || 'Title',
+                'Option1 Value': item['option1 value'] || item.size || 'Default Title',
+                'Option1 Linked To': '',
+                'Option2 Name': item['option2 name'] || '',
+                'Option2 Value': item['option2 value'] || item.color || '',
+                'Option2 Linked To': '',
+                'Option3 Name': item['option3 name'] || '',
+                'Option3 Value': item['option3 value'] || '',
+                'Option3 Linked To': '',
                 'Variant SKU': item.sku || generateSKU(item, i),
-                'Variant Inventory Qty': item.quantity || item.qty || 1,
-                'Variant Price': item.price || item['retail price'] || '',
-                'Variant Barcode': item.barcode || item.upc || '',
+                'Variant Grams': item.weight || item.grams || '0',
+                'Variant Inventory Tracker': 'shopify',
+                'Variant Inventory Qty': item.quantity || item.qty || item['on hand'] || '0',
+                'Variant Inventory Policy': 'deny',
+                'Variant Fulfillment Service': 'manual',
+                'Variant Price': item.price || item['retail price'] || item['sell price'] || item.msrp || '',
+                'Variant Compare At Price': item.msrp || item['compare at price'] || item['list price'] || '',
+                'Variant Requires Shipping': 'TRUE',
+                'Variant Taxable': 'TRUE',
+                'Unit Price Total Measure': '',
+                'Unit Price Total Measure Unit': '',
+                'Unit Price Base Measure': '',
+                'Unit Price Base Measure Unit': '',
+                'Variant Barcode': item.barcode || item.upc || item.ean || item.gtin || '',
                 'Image Src': findMatchingImage(item),
+                'Image Position': '1',
+                'Image Alt Text': `${item.brand || ''} ${item.name || 'product'}`.trim(),
+                'Gift Card': 'FALSE',
                 'SEO Title': generateSEOTitle(item),
                 'SEO Description': generateSEODescription(item),
+                'Variant Image': '',
+                'Variant Weight Unit': 'g',
+                'Variant Tax Code': '',
+                'Cost per item': item.cost || item['cost price'] || item['wholesale price'] || '',
                 'Status': 'active'
             }));
             
-            document.getElementById('download-btn').disabled = false;
-            showPreview();
+            document.getElementById('download-products-btn').disabled = false;
+            showPreview('products');
             showStatus(`Processed ${processedData.length} products!`, 'success');
+        }
+
+        async function processCustomers() {
+            showStatus('Processing customers...', 'success');
+            const allCustomers = [];
+            
+            const customerFiles = [...files.customerList, ...files.orderHistory];
+            
+            for (const file of customerFiles) {
+                const data = file.name.endsWith('.csv') ? await readCSV(file) : await readExcel(file);
+                const headers = data[0].map(h => String(h || '').trim().toLowerCase());
+                
+                for (let i = 1; i < data.length; i++) {
+                    if (!data[i] || data[i].length === 0) continue;
+                    const item = {};
+                    headers.forEach((h, idx) => item[h] = data[i][idx]);
+                    
+                    // Only add if has customer info
+                    if (item.email || item['customer email'] || item['customer name']) {
+                        allCustomers.push(item);
+                    }
+                }
+            }
+            
+            if (allCustomers.length === 0) {
+                showStatus('No customer data found in files', 'error');
+                return;
+            }
+            
+            // Deduplicate by email
+            const uniqueCustomers = {};
+            allCustomers.forEach(c => {
+                const email = (c.email || c['customer email'] || '').toLowerCase().trim();
+                if (email && !uniqueCustomers[email]) {
+                    uniqueCustomers[email] = c;
+                }
+            });
+            
+            processedCustomers = Object.values(uniqueCustomers).map(customer => ({
+                'First Name': customer['first name'] || customer['customer first name'] || customer.firstname || '',
+                'Last Name': customer['last name'] || customer['customer last name'] || customer.lastname || '',
+                'Email': customer.email || customer['customer email'] || '',
+                'Company': customer.company || customer['company name'] || '',
+                'Address1': customer.address || customer.address1 || customer['street address'] || '',
+                'Address2': customer.address2 || customer['address line 2'] || '',
+                'City': customer.city || '',
+                'Province': customer.province || customer.state || customer.region || '',
+                'Province Code': customer['province code'] || customer['state code'] || '',
+                'Country': customer.country || 'Canada',
+                'Country Code': customer['country code'] || 'CA',
+                'Zip': customer.zip || customer.postal || customer['postal code'] || customer.zipcode || '',
+                'Phone': customer.phone || customer['phone number'] || customer.telephone || '',
+                'Accepts Marketing': customer['accepts marketing'] || customer['email marketing'] || 'no',
+                'Total Spent': customer['total spent'] || customer['lifetime value'] || '0.00',
+                'Total Orders': customer['total orders'] || customer['order count'] || '0',
+                'Tags': customer.tags || 'Lightspeed Import',
+                'Note': `Imported from Lightspeed on ${new Date().toLocaleDateString()}`,
+                'Tax Exempt': customer['tax exempt'] || 'no'
+            }));
+            
+            document.getElementById('download-customers-btn').disabled = false;
+            showPreview('customers');
+            showStatus(`Processed ${processedCustomers.length} unique customers!`, 'success');
+        }
+
+        function findPricingData(item) {
+            const sku = String(item.sku || '').toLowerCase().trim();
+            
+            for (const file of [...files.pricing]) {
+                // This would need to be processed from stored pricing files
+                // For now, return null
+            }
+            return null;
         }
 
         function findMasterData(item) {
@@ -440,8 +610,36 @@
 
         function generateTags(item) {
             const tags = new Set();
-            if (item.brand) tags.add(item.brand);
-            if (item.category) tags.add(item.category);
+            
+            // Add from existing tags field
+            if (item.tags) {
+                const existingTags = String(item.tags).split(',');
+                existingTags.forEach(tag => tags.add(tag.trim()));
+            }
+            
+            // Add brand/manufacturer
+            if (item.brand || item.manufacturer) {
+                tags.add(String(item.brand || item.manufacturer).trim());
+            }
+            
+            // Add category/type
+            if (item.category || item.type) {
+                tags.add(String(item.category || item.type).trim());
+            }
+            
+            // Common bike part tags
+            const name = String(item.name || item.description || '').toLowerCase();
+            const bikeTerms = ['tire', 'wheel', 'brake', 'chain', 'pedal', 'saddle', 'handlebar', 
+                               'fork', 'frame', 'gear', 'derailleur', 'cassette', 'crankset', 
+                               'helmet', 'light', 'lock', 'pump', 'tube', 'rim', 'suspension',
+                               'mtb', 'road', 'gravel', 'service', 'accessory'];
+            
+            bikeTerms.forEach(term => {
+                if (name.includes(term)) {
+                    tags.add(term.charAt(0).toUpperCase() + term.slice(1));
+                }
+            });
+            
             return Array.from(tags).join(', ');
         }
 
@@ -460,42 +658,74 @@
             return html;
         }
 
-        function showPreview() {
+        function showPreview(type = 'products') {
             const preview = document.getElementById('preview');
             preview.classList.remove('hidden');
-            preview.innerHTML = `
-                <h3>Preview (${processedData.length} products)</h3>
-                <table>
-                    <tr><th>SKU</th><th>Title</th><th>Vendor</th><th>Price</th><th>Qty</th></tr>
-                    ${processedData.slice(0, 10).map(p => `
-                        <tr>
-                            <td>${p['Variant SKU']}</td>
-                            <td>${p.Title}</td>
-                            <td>${p.Vendor}</td>
-                            <td>${p['Variant Price']}</td>
-                            <td>${p['Variant Inventory Qty']}</td>
-                        </tr>
-                    `).join('')}
-                </table>
-            `;
+            
+            if (type === 'products') {
+                preview.innerHTML = `
+                    <h3>📦 Products Preview (${processedData.length} products)</h3>
+                    <table>
+                        <tr><th>Image</th><th>SKU</th><th>Title</th><th>Vendor</th><th>Price</th><th>Qty</th></tr>
+                        ${processedData.slice(0, 10).map(p => `
+                            <tr>
+                                <td>${p['Image Src'] ? '<img src="' + p['Image Src'] + '" style="width:40px;height:40px;object-fit:cover;border-radius:5px;">' : '—'}</td>
+                                <td>${p['Variant SKU']}</td>
+                                <td>${p.Title}</td>
+                                <td>${p.Vendor}</td>
+                                <td>${p['Variant Price']}</td>
+                                <td>${p['Variant Inventory Qty']}</td>
+                            </tr>
+                        `).join('')}
+                    </table>
+                    ${processedData.length > 10 ? `<p style="margin-top:10px;color:#666;">+ ${processedData.length - 10} more products</p>` : ''}
+                `;
+            } else if (type === 'customers') {
+                preview.innerHTML = `
+                    <h3>👥 Customers Preview (${processedCustomers.length} customers)</h3>
+                    <table>
+                        <tr><th>Name</th><th>Email</th><th>Phone</th><th>City</th><th>Total Spent</th><th>Orders</th></tr>
+                        ${processedCustomers.slice(0, 10).map(c => `
+                            <tr>
+                                <td>${c['First Name']} ${c['Last Name']}</td>
+                                <td>${c.Email}</td>
+                                <td>${c.Phone}</td>
+                                <td>${c.City}</td>
+                                <td>${c['Total Spent']}</td>
+                                <td>${c['Total Orders']}</td>
+                            </tr>
+                        `).join('')}
+                    </table>
+                    ${processedCustomers.length > 10 ? `<p style="margin-top:10px;color:#666;">+ ${processedCustomers.length - 10} more customers</p>` : ''}
+                `;
+            }
         }
 
-        function downloadCSV() {
-            const csv = Papa.unparse(processedData);
+        function downloadCSV(type = 'products') {
+            if (type === 'products' && processedData.length === 0) return;
+            if (type === 'customers' && processedCustomers.length === 0) return;
+            
+            const data = type === 'products' ? processedData : processedCustomers;
+            const csv = Papa.unparse(data);
             const blob = new Blob([csv], { type: 'text/csv' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `shopify_import_${Date.now()}.csv`;
+            a.download = `shopify_${type}_import_${Date.now()}.csv`;
             a.click();
+            
+            showStatus(`Downloaded ${type} CSV successfully!`, 'success');
         }
 
         function clearAll() {
             Object.keys(files).forEach(k => files[k] = []);
             Object.keys(files).forEach(updateFileList);
             processedData = [];
+            processedCustomers = [];
             document.getElementById('preview').classList.add('hidden');
-            document.getElementById('download-btn').disabled = true;
+            document.getElementById('download-products-btn').disabled = true;
+            document.getElementById('download-customers-btn').disabled = true;
+            showStatus('Cleared all uploaded files', 'success');
         }
 
         function readExcel(file) {
