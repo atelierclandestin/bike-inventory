@@ -6,99 +6,56 @@
     <title>L'Atelier Clandestin - Shopify Import Tool</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; }
         .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
-        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px; border-radius: 10px; margin-bottom: 30px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px; border-radius: 10px; margin-bottom: 30px; }
         .header h1 { font-size: 36px; margin-bottom: 10px; }
-        .header p { font-size: 18px; opacity: 0.95; }
-        .tabs { display: flex; gap: 5px; margin-bottom: 25px; border-bottom: 3px solid #e0e0e0; background: white; border-radius: 10px 10px 0 0; padding: 10px 10px 0 10px; }
-        .tab { padding: 15px 30px; background: none; border: none; font-size: 16px; cursor: pointer; color: #666; font-weight: 600; border-radius: 8px 8px 0 0; transition: all 0.3s; }
-        .tab.active { color: #667eea; background: white; border-bottom: 3px solid #667eea; margin-bottom: -3px; }
-        .tab:hover:not(.active) { background: #f5f5f5; }
+        .tabs { display: flex; gap: 5px; margin-bottom: 25px; background: white; border-radius: 10px 10px 0 0; padding: 10px; }
+        .tab { padding: 15px 30px; background: none; border: none; font-size: 16px; cursor: pointer; color: #666; font-weight: 600; border-radius: 8px; }
+        .tab.active { color: #667eea; background: #f0f4ff; }
         .section { background: white; padding: 30px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
-        .section h2 { font-size: 24px; margin-bottom: 15px; color: #333; display: flex; align-items: center; gap: 10px; }
-        .section h3 { font-size: 18px; margin: 20px 0 10px 0; color: #555; }
-        .file-upload { border: 2px dashed #ddd; padding: 30px; border-radius: 8px; text-align: center; margin: 15px 0; background: #fafafa; transition: all 0.3s; }
-        .file-upload:hover { border-color: #667eea; background: #f0f4ff; }
-        .file-upload input { width: 100%; padding: 10px; }
-        .btn { padding: 14px 28px; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s; display: inline-flex; align-items: center; gap: 8px; }
+        .section h2 { font-size: 24px; margin-bottom: 15px; color: #333; }
+        .btn { padding: 14px 28px; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s; }
         .btn-primary { background: #667eea; color: white; }
-        .btn-primary:hover { background: #5568d3; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4); }
+        .btn-primary:hover { background: #5568d3; }
         .btn-success { background: #48bb78; color: white; }
-        .btn-success:hover { background: #38a169; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(72, 187, 120, 0.4); }
-        .btn-danger { background: #f56565; color: white; }
-        .btn-danger:hover { background: #e53e3e; }
-        .btn-secondary { background: #718096; color: white; }
-        .btn-secondary:hover { background: #4a5568; }
-        .btn:disabled { background: #cbd5e0; cursor: not-allowed; transform: none; }
+        .btn:disabled { background: #cbd5e0; cursor: not-allowed; }
         .btn-row { display: flex; gap: 15px; margin: 25px 0; flex-wrap: wrap; }
-        .supplier-card { background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%); padding: 20px; border-radius: 10px; margin: 15px 0; border-left: 4px solid #667eea; }
-        .supplier-card h4 { font-size: 20px; margin-bottom: 10px; color: #2d3748; }
-        .supplier-info { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 15px 0; }
-        .supplier-stat { background: white; padding: 12px; border-radius: 6px; }
-        .supplier-stat strong { color: #4a5568; font-size: 12px; display: block; margin-bottom: 5px; }
-        .supplier-stat span { color: #2d3748; font-size: 18px; font-weight: 600; }
-        .status { padding: 15px 20px; border-radius: 8px; margin: 20px 0; font-weight: 500; display: flex; align-items: center; gap: 10px; }
-        .status.success { background: #c6f6d5; color: #22543d; border-left: 4px solid #38a169; }
-        .status.error { background: #fed7d7; color: #742a2a; border-left: 4px solid #e53e3e; }
-        .status.warning { background: #feebc8; color: #7c2d12; border-left: 4px solid #dd6b20; }
-        .status.info { background: #bee3f8; color: #2c5282; border-left: 4px solid #3182ce; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; }
-        th { background: #f7fafc; font-weight: 600; color: #2d3748; position: sticky; top: 0; }
-        tbody tr:hover { background: #f7fafc; }
-        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        .image-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 15px; margin-top: 15px; max-height: 400px; overflow-y: auto; }
-        .image-item { position: relative; aspect-ratio: 1; }
-        .image-item img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; border: 2px solid #e2e8f0; }
-        .image-item button { position: absolute; top: 5px; right: 5px; background: rgba(0,0,0,0.7); color: white; border: none; padding: 6px 10px; border-radius: 5px; cursor: pointer; font-size: 12px; }
-        .image-item .name { font-size: 11px; margin-top: 5px; color: #4a5568; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .file-upload { border: 2px dashed #ddd; padding: 30px; border-radius: 8px; text-align: center; margin: 15px 0; background: #fafafa; }
+        .status { padding: 15px 20px; border-radius: 8px; margin: 20px 0; font-weight: 500; }
+        .status.success { background: #c6f6d5; color: #22543d; }
+        .status.error { background: #fed7d7; color: #742a2a; }
+        .status.info { background: #bee3f8; color: #2c5282; }
         .form-group { margin: 20px 0; }
         .form-group label { display: block; font-weight: 600; margin-bottom: 8px; color: #2d3748; }
-        .form-group input, .form-group select { width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 6px; font-size: 14px; }
-        .form-group input:focus, .form-group select:focus { outline: none; border-color: #667eea; }
+        .form-group input, .form-group select { width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 6px; }
+        .supplier-card { background: #f7fafc; padding: 20px; border-radius: 10px; margin: 15px 0; border-left: 4px solid #667eea; }
         .hidden { display: none; }
-        .modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-        .modal-content { background: white; padding: 30px; border-radius: 12px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; }
-        .modal-content h3 { margin-bottom: 20px; }
-        .progress-bar { background: #e2e8f0; height: 8px; border-radius: 4px; overflow: hidden; margin: 15px 0; }
-        .progress-fill { background: linear-gradient(90deg, #667eea, #764ba2); height: 100%; transition: width 0.3s; }
-        .badge { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; }
-        .badge-success { background: #c6f6d5; color: #22543d; }
-        .badge-warning { background: #feebc8; color: #7c2d12; }
-        .badge-error { background: #fed7d7; color: #742a2a; }
-        .instructions { background: linear-gradient(135deg, #fef5e7 0%, #fef9e7 100%); border-left: 4px solid #f39c12; padding: 25px; margin-top: 30px; border-radius: 8px; }
-        .instructions h3 { margin-bottom: 15px; color: #d68910; }
-        .instructions li { margin: 10px 0; line-height: 1.6; }
-        .instructions strong { color: #d68910; }
-        .quick-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0; }
-        .stat-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px; text-align: center; }
-        .stat-card .number { font-size: 36px; font-weight: bold; }
-        .stat-card .label { font-size: 14px; opacity: 0.9; margin-top: 5px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+        th { background: #f7fafc; font-weight: 600; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>🚴 L'Atelier Clandestin</h1>
-            <p>Shopify Import Tool - Invoice to Inventory in Minutes</p>
+            <h1>🚴 L'Atelier Clandestin - Shopify Import Tool</h1>
+            <p>Transform invoices into ready-to-import Shopify products in minutes</p>
         </div>
 
         <div class="tabs">
-            <button class="tab active" onclick="showTab('process')">📦 Process New Stock</button>
+            <button class="tab active" onclick="showTab('process')">📦 Process Invoice</button>
             <button class="tab" onclick="showTab('suppliers')">🏭 Suppliers (<span id="supplier-count">0</span>)</button>
-            <button class="tab" onclick="showTab('migration')">🔄 Lightspeed Migration</button>
-            <button class="tab" onclick="showTab('settings')">⚙️ Settings</button>
+            <button class="tab" onclick="showTab('migration')">🔄 Migration</button>
         </div>
 
-        <!-- TAB 1: PROCESS NEW STOCK -->
+        <!-- PROCESS TAB -->
         <div id="process-tab">
             <div class="section">
-                <h2>📄 Upload Invoice or Packing List</h2>
-                <p style="color: #666; margin-bottom: 20px;">Upload today's supplier invoice (PDF, Excel, or CSV) to automatically create Shopify products</p>
+                <h2>📄 Upload Today's Invoice</h2>
+                <p style="color:#666;margin-bottom:20px;">Upload supplier invoice/packing list to create Shopify products automatically</p>
                 
                 <div class="form-group">
                     <label>Select Supplier</label>
@@ -108,425 +65,784 @@
                 </div>
 
                 <div class="file-upload">
-                    <input type="file" id="invoice-upload" accept=".pdf,.xlsx,.xls,.csv" onchange="handleInvoiceUpload(this)">
-                    <p style="margin-top: 10px; color: #666;">Accepts PDF, Excel, or CSV files</p>
+                    <input type="file" id="invoice-file" accept=".pdf,.xlsx,.xls,.csv">
+                    <p style="margin-top:10px;color:#666;">PDF, Excel, or CSV accepted</p>
                 </div>
 
-                <div id="invoice-status"></div>
-                <div id="processing-progress" class="hidden">
-                    <div class="progress-bar">
-                        <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
-                    </div>
-                    <p id="progress-text" style="text-align: center; color: #666;"></p>
-                </div>
+                <div id="status"></div>
 
                 <div class="btn-row">
-                    <button class="btn btn-primary" id="process-btn" onclick="processInvoice()" disabled>⚙️ Process Invoice</button>
-                    <button class="btn btn-success" id="download-btn" onclick="downloadShopifyCSV()" disabled>📥 Download Shopify CSV</button>
-                    <button class="btn btn-secondary" onclick="clearInvoice()">🔄 Clear</button>
+                    <button class="btn btn-primary" onclick="processInvoice()" id="process-btn" disabled>⚙️ Process</button>
+                    <button class="btn btn-success" onclick="downloadCSV()" id="download-btn" disabled>📥 Download Shopify CSV</button>
                 </div>
             </div>
 
-            <div id="preview-section" class="section hidden">
-                <h2>📊 Preview - Ready to Import</h2>
-                <div class="quick-stats" id="quick-stats"></div>
-                <div id="preview-table"></div>
-            </div>
+            <div id="preview" class="section hidden"></div>
         </div>
 
-        <!-- TAB 2: SUPPLIERS -->
+        <!-- SUPPLIERS TAB -->
         <div id="suppliers-tab" class="hidden">
             <div class="section">
-                <h2>🏭 Supplier Management</h2>
-                <p style="color: #666; margin-bottom: 20px;">Manage supplier catalogs, images, and pricing rules</p>
-                <button class="btn btn-primary" onclick="showAddSupplierModal()">➕ Add New Supplier</button>
+                <h2>🏭 Manage Suppliers</h2>
+                <button class="btn btn-primary" onclick="showAddSupplier()">➕ Add Supplier</button>
             </div>
-
             <div id="suppliers-list"></div>
+            
+            <div id="add-supplier-form" class="section hidden">
+                <h2>➕ Add New Supplier</h2>
+                <div class="form-group">
+                    <label>Supplier Name</label>
+                    <input type="text" id="new-supplier-name" placeholder="Cycles Lambert">
+                </div>
+                <div class="form-group">
+                    <label>Master Catalog (Excel/CSV)</label>
+                    <input type="file" id="new-catalog" accept=".xlsx,.xls,.csv">
+                </div>
+                <div class="form-group">
+                    <label>Product Images</label>
+                    <input type="file" id="new-images" accept="image/*" multiple>
+                </div>
+                <div class="form-group">
+                    <label>Pricing Strategy</label>
+                    <select id="pricing-strategy">
+                        <option value="markup">Markup from Cost</option>
+                        <option value="msrp">Use MSRP</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Markup Multiplier (e.g. 2.3)</label>
+                    <input type="number" id="markup" value="2.3" step="0.1">
+                </div>
+                <div class="btn-row">
+                    <button class="btn btn-primary" onclick="saveSupplier()">💾 Save</button>
+                    <button class="btn" onclick="hideAddSupplier()" style="background:#718096;color:white;">Cancel</button>
+                </div>
+            </div>
         </div>
 
-        <!-- TAB 3: LIGHTSPEED MIGRATION -->
+        <!-- MIGRATION TAB -->
         <div id="migration-tab" class="hidden">
             <div class="section">
-                <h2>🔄 Lightspeed to Shopify Migration</h2>
-                <p style="color: #666; margin-bottom: 20px;">One-time migration tools for moving from Lightspeed</p>
+                <h2>🔄 Lightspeed Migration</h2>
+                <p style="color:#666;margin-bottom:20px;">One-time import from Lightspeed</p>
                 
-                <div class="grid-2">
-                    <div>
-                        <h3>📦 Products Export</h3>
-                        <input type="file" multiple accept=".xlsx,.xls,.csv" onchange="handleMigration('products', this)">
-                        <div id="migration-products-list"></div>
-                    </div>
-                    <div>
-                        <h3>👥 Customers Export</h3>
-                        <input type="file" multiple accept=".xlsx,.xls,.csv" onchange="handleMigration('customers', this)">
-                        <div id="migration-customers-list"></div>
-                    </div>
-                </div>
-
-                <div class="btn-row">
-                    <button class="btn btn-primary" onclick="processMigration('products')">⚙️ Process Products</button>
-                    <button class="btn btn-primary" onclick="processMigration('customers')" style="background: #9f7aea;">👥 Process Customers</button>
-                    <button class="btn btn-success" id="download-migration-products" onclick="downloadMigrationCSV('products')" disabled>📥 Download Products CSV</button>
-                    <button class="btn btn-success" id="download-migration-customers" onclick="downloadMigrationCSV('customers')" disabled>📥 Download Customers CSV</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- TAB 4: SETTINGS -->
-        <div id="settings-tab" class="hidden">
-            <div class="section">
-                <h2>⚙️ Global Settings</h2>
+                <h3 style="margin:20px 0 10px 0;">Products</h3>
+                <input type="file" id="ls-products" accept=".xlsx,.xls,.csv" multiple>
                 
-                <div class="form-group">
-                    <label>Default Markup Percentage</label>
-                    <input type="number" id="default-markup" placeholder="2.3" step="0.1" value="2.3">
-                    <small style="color: #666;">Used when supplier doesn't have specific markup rule</small>
-                </div>
-
-                <div class="form-group">
-                    <label>Shop Name</label>
-                    <input type="text" id="shop-name" value="L'Atelier Clandestin">
-                </div>
-
-                <h3>💾 Data Management</h3>
+                <h3 style="margin:20px 0 10px 0;">Customers</h3>
+                <input type="file" id="ls-customers" accept=".xlsx,.xls,.csv" multiple>
+                
                 <div class="btn-row">
-                    <button class="btn btn-primary" onclick="exportAllData()">📤 Export All Data</button>
-                    <button class="btn btn-success" onclick="document.getElementById('import-data-input').click()">📥 Import Data</button>
-                    <button class="btn btn-danger" onclick="clearAllData()">🗑️ Clear All Data</button>
+                    <button class="btn btn-primary" onclick="processMigration('products')">Process Products</button>
+                    <button class="btn btn-primary" onclick="processMigration('customers')">Process Customers</button>
                 </div>
-                <input type="file" id="import-data-input" accept=".json" onchange="importAllData(this)" style="display:none">
-            </div>
-        </div>
-
-        <div class="instructions">
-            <h3>📋 How to Use This Tool</h3>
-            <ol>
-                <li><strong>First Time Setup:</strong> Add your suppliers in the "Suppliers" tab with their master catalogs and product images</li>
-                <li><strong>Set Pricing Rules:</strong> Configure markup percentage or use supplier MSRP for each supplier</li>
-                <li><strong>Daily Use:</strong> Upload invoice → Select supplier → Process → Download CSV → Import to Shopify</li>
-                <li><strong>Migration:</strong> Use the "Lightspeed Migration" tab for one-time data transfer</li>
-            </ol>
-            
-            <h4 style="margin-top: 20px;">💡 Pro Tips:</h4>
-            <ul>
-                <li>Name image files with SKU or UPC for automatic matching (e.g., "12798.jpg")</li>
-                <li>Keep supplier master files updated for best results</li>
-                <li>Review the preview before downloading to catch any issues</li>
-                <li>Export your data regularly as backup</li>
-            </ul>
-        </div>
-    </div>
-
-    <!-- ADD SUPPLIER MODAL -->
-    <div id="add-supplier-modal" class="modal hidden">
-        <div class="modal-content">
-            <h3>➕ Add New Supplier</h3>
-            
-            <div class="form-group">
-                <label>Supplier Name</label>
-                <input type="text" id="new-supplier-name" placeholder="Cycles Lambert">
-            </div>
-
-            <div class="form-group">
-                <label>Master Catalog File (Excel/CSV)</label>
-                <input type="file" id="new-supplier-catalog" accept=".xlsx,.xls,.csv">
-            </div>
-
-            <div class="form-group">
-                <label>Product Images (Multiple)</label>
-                <input type="file" id="new-supplier-images" accept="image/*" multiple>
-            </div>
-
-            <div class="form-group">
-                <label>Pricing Strategy</label>
-                <select id="new-supplier-pricing">
-                    <option value="markup">Markup from Cost</option>
-                    <option value="msrp">Use Supplier MSRP</option>
-                    <option value="invoice">Use Invoice Price</option>
-                </select>
-            </div>
-
-            <div class="form-group" id="markup-input-group">
-                <label>Markup Multiplier</label>
-                <input type="number" id="new-supplier-markup" placeholder="2.3" step="0.1" value="2.3">
-                <small style="color: #666;">e.g., 2.3 means retail = cost × 2.3</small>
-            </div>
-
-            <div class="btn-row">
-                <button class="btn btn-primary" onclick="saveNewSupplier()">💾 Save Supplier</button>
-                <button class="btn btn-secondary" onclick="hideAddSupplierModal()">Cancel</button>
             </div>
         </div>
     </div>
 
     <script>
-        // Configure PDF.js worker
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-
-        // Global state
         let suppliers = [];
-        let currentInvoiceData = null;
-        let processedProducts = [];
-        let migrationData = { products: [], customers: [] };
-        let migrationFiles = { products: [], customers: [] };
+        let processedData = [];
+        
+        loadSuppliers();
 
-        // Load data on startup
-        loadAllData();
-
-        function showTab(tab) {
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            event.target.classList.add('active');
-            
-            document.getElementById('process-tab').classList.toggle('hidden', tab !== 'process');
-            document.getElementById('suppliers-tab').classList.toggle('hidden', tab !== 'suppliers');
-            document.getElementById('migration-tab').classList.toggle('hidden', tab !== 'migration');
-            document.getElementById('settings-tab').classList.toggle('hidden', tab !== 'settings');
-        }
-
-        async function loadAllData() {
+        async function loadSuppliers() {
             try {
-                const suppliersResult = await window.storage.list('supplier:');
-                if (suppliersResult && suppliersResult.keys) {
+                const result = await window.storage.list('supplier:');
+                if (result?.keys) {
                     suppliers = await Promise.all(
-                        suppliersResult.keys.map(async (key) => {
-                            const result = await window.storage.get(key);
-                            return result ? JSON.parse(result.value) : null;
+                        result.keys.map(async k => {
+                            const r = await window.storage.get(k);
+                            return r ? JSON.parse(r.value) : null;
                         })
                     );
                     suppliers = suppliers.filter(s => s);
                 }
-                updateSuppliersList();
-                updateSupplierSelect();
-            } catch (error) {
-                console.log('No saved data found');
+                updateSupplierUI();
+            } catch (e) {
+                console.log('No suppliers yet');
             }
         }
 
-        function updateSupplierSelect() {
+        function updateSupplierUI() {
             const select = document.getElementById('supplier-select');
-            const currentValue = select.value;
             select.innerHTML = '<option value="">-- Select Supplier --</option>';
             suppliers.forEach((s, i) => {
-                const option = document.createElement('option');
-                option.value = i;
-                option.textContent = s.name;
-                select.appendChild(option);
+                select.innerHTML += `<option value="${i}">${s.name}</option>`;
             });
-            if (currentValue) select.value = currentValue;
+            
             document.getElementById('supplier-count').textContent = suppliers.length;
-        }
-
-        function updateSuppliersList() {
-            const container = document.getElementById('suppliers-list');
+            
+            const list = document.getElementById('suppliers-list');
             if (suppliers.length === 0) {
-                container.innerHTML = '<div class="status info">No suppliers added yet. Click "Add New Supplier" to get started.</div>';
-                return;
+                list.innerHTML = '<div class="status info">No suppliers yet. Add one to get started.</div>';
+            } else {
+                list.innerHTML = suppliers.map((s, i) => `
+                    <div class="supplier-card">
+                        <h3>${s.name}</h3>
+                        <p>📄 ${s.catalogCount || 0} products | 🖼️ ${s.imageCount || 0} images | 💰 ${s.pricing}</p>
+                        <button class="btn" onclick="deleteSupplier(${i})" style="background:#f56565;color:white;margin-top:10px;">Delete</button>
+                    </div>
+                `).join('');
             }
-
-            container.innerHTML = suppliers.map((s, i) => `
-                <div class="supplier-card">
-                    <h4>🏭 ${s.name}</h4>
-                    <div class="supplier-info">
-                        <div class="supplier-stat">
-                            <strong>MASTER FILE</strong>
-                            <span>${s.catalogProducts || 0} products</span>
-                        </div>
-                        <div class="supplier-stat">
-                            <strong>IMAGES</strong>
-                            <span>${s.images ? s.images.length : 0} photos</span>
-                        </div>
-                        <div class="supplier-stat">
-                            <strong>PRICING</strong>
-                            <span>${s.pricingStrategy === 'markup' ? `${s.markup}x markup` : s.pricingStrategy.toUpperCase()}</span>
-                        </div>
-                    </div>
-                    <div class="btn-row">
-                        <button class="btn btn-secondary" onclick="editSupplier(${i})">✏️ Edit</button>
-                        <button class="btn btn-danger" onclick="deleteSupplier(${i})">🗑️ Delete</button>
-                    </div>
-                </div>
-            `).join('');
         }
 
-        function showAddSupplierModal() {
-            document.getElementById('add-supplier-modal').classList.remove('hidden');
-            document.getElementById('new-supplier-pricing').addEventListener('change', function() {
-                document.getElementById('markup-input-group').style.display = 
-                    this.value === 'markup' ? 'block' : 'none';
-            });
+        function showTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById('process-tab').classList.toggle('hidden', tab !== 'process');
+            document.getElementById('suppliers-tab').classList.toggle('hidden', tab !== 'suppliers');
+            document.getElementById('migration-tab').classList.toggle('hidden', tab !== 'migration');
         }
 
-        function hideAddSupplierModal() {
-            document.getElementById('add-supplier-modal').classList.add('hidden');
+        function showAddSupplier() {
+            document.getElementById('add-supplier-form').classList.remove('hidden');
         }
 
-        async function saveNewSupplier() {
+        function hideAddSupplier() {
+            document.getElementById('add-supplier-form').classList.add('hidden');
+        }
+
+        async function saveSupplier() {
             const name = document.getElementById('new-supplier-name').value.trim();
-            const catalogFile = document.getElementById('new-supplier-catalog').files[0];
-            const imageFiles = document.getElementById('new-supplier-images').files;
-            const pricingStrategy = document.getElementById('new-supplier-pricing').value;
-            const markup = parseFloat(document.getElementById('new-supplier-markup').value) || 2.3;
-
-            if (!name) {
-                alert('Please enter supplier name');
-                return;
-            }
-
-            showStatus('Saving supplier...', 'info');
-
+            if (!name) return alert('Enter supplier name');
+            
             const supplier = {
                 id: Date.now(),
-                name: name,
-                pricingStrategy: pricingStrategy,
-                markup: markup,
+                name,
+                pricing: document.getElementById('pricing-strategy').value,
+                markup: parseFloat(document.getElementById('markup').value),
                 catalog: [],
                 images: []
             };
 
-            // Process catalog file
+            // Process catalog
+            const catalogFile = document.getElementById('new-catalog').files[0];
             if (catalogFile) {
-                try {
-                    const data = catalogFile.name.endsWith('.csv') 
-                        ? await readCSV(catalogFile)
-                        : await readExcel(catalogFile);
-                    
-                    const headers = data[0].map(h => String(h || '').trim().toLowerCase());
-                    supplier.catalog = data.slice(1).filter(row => row && row.length > 0).map(row => {
-                        const item = {};
-                        headers.forEach((h, i) => item[h] = row[i]);
-                        return item;
-                    });
-                    supplier.catalogProducts = supplier.catalog.length;
-                } catch (error) {
-                    console.error('Error processing catalog:', error);
-                }
+                const data = catalogFile.name.endsWith('.csv') 
+                    ? await readCSV(catalogFile)
+                    : await readExcel(catalogFile);
+                const headers = data[0].map(h => String(h||'').trim().toLowerCase());
+                supplier.catalog = data.slice(1).map(row => {
+                    const item = {};
+                    headers.forEach((h,i) => item[h] = row[i]);
+                    return item;
+                });
+                supplier.catalogCount = supplier.catalog.length;
             }
 
             // Process images
-            if (imageFiles.length > 0) {
-                for (const file of imageFiles) {
-                    if (file.type.startsWith('image/')) {
-                        const dataUrl = await readFileAsDataURL(file);
-                        supplier.images.push({
-                            fileName: file.name,
-                            identifier: file.name.split('.')[0].toLowerCase().replace(/[^a-z0-9]/g, ''),
-                            dataUrl: dataUrl
-                        });
-                    }
+            const imageFiles = document.getElementById('new-images').files;
+            for (const file of imageFiles) {
+                if (file.type.startsWith('image/')) {
+                    const dataUrl = await readFileAsDataURL(file);
+                    supplier.images.push({
+                        name: file.name,
+                        id: file.name.split('.')[0].toLowerCase().replace(/[^a-z0-9]/g,''),
+                        data: dataUrl
+                    });
                 }
             }
+            supplier.imageCount = supplier.images.length;
 
-            // Save to storage
             await window.storage.set(`supplier:${supplier.id}`, JSON.stringify(supplier));
             suppliers.push(supplier);
-            
-            updateSuppliersList();
-            updateSupplierSelect();
-            hideAddSupplierModal();
-            showStatus(`Supplier "${name}" added successfully!`, 'success');
+            updateSupplierUI();
+            hideAddSupplier();
+            showStatus(`Supplier "${name}" added!`, 'success');
         }
 
-        async function deleteSupplier(index) {
-            if (!confirm(`Delete supplier "${suppliers[index].name}"?`)) return;
-            
-            await window.storage.delete(`supplier:${suppliers[index].id}`);
-            suppliers.splice(index, 1);
-            updateSuppliersList();
-            updateSupplierSelect();
-            showStatus('Supplier deleted', 'success');
+        async function deleteSupplier(i) {
+            if (!confirm(`Delete "${suppliers[i].name}"?`)) return;
+            await window.storage.delete(`supplier:${suppliers[i].id}`);
+            suppliers.splice(i, 1);
+            updateSupplierUI();
         }
 
-        function handleInvoiceUpload(input) {
-            if (input.files.length > 0) {
-                currentInvoiceData = input.files[0];
+        document.getElementById('invoice-file').addEventListener('change', function() {
+            if (this.files.length > 0) {
                 document.getElementById('process-btn').disabled = false;
-                showStatus(`Loaded: ${input.files[0].name}`, 'success');
+                showStatus(`Loaded: ${this.files[0].name}`, 'success');
             }
-        }
+        });
 
         async function processInvoice() {
-            const supplierIndex = document.getElementById('supplier-select').value;
-            if (!supplierIndex) {
-                showStatus('Please select a supplier', 'error');
-                return;
-            }
-            if (!currentInvoiceData) {
-                showStatus('Please upload an invoice', 'error');
-                return;
-            }
+            const si = document.getElementById('supplier-select').value;
+            if (!si) return showStatus('Select a supplier', 'error');
+            
+            const file = document.getElementById('invoice-file').files[0];
+            if (!file) return showStatus('Upload invoice', 'error');
 
-            const supplier = suppliers[supplierIndex];
-            showStatus('Processing invoice...', 'info');
-            document.getElementById('processing-progress').classList.remove('hidden');
-            updateProgress(10, 'Reading invoice...');
+            const supplier = suppliers[si];
+            showStatus('Processing...', 'info');
 
             try {
-                let invoiceProducts = [];
-                
-                // Extract data based on file type
-                if (currentInvoiceData.name.endsWith('.pdf')) {
-                    invoiceProducts = await extractFromPDF(currentInvoiceData);
+                // Read invoice
+                let data;
+                if (file.name.endsWith('.csv')) {
+                    data = await readCSV(file);
+                } else if (file.name.endsWith('.pdf')) {
+                    showStatus('PDF support coming soon! Use Excel/CSV for now.', 'error');
+                    return;
                 } else {
-                    const data = currentInvoiceData.name.endsWith('.csv')
-                        ? await readCSV(currentInvoiceData)
-                        : await readExcel(currentInvoiceData);
-                    invoiceProducts = parseInvoiceData(data);
+                    data = await readExcel(file);
                 }
 
-                updateProgress(40, 'Matching products...');
-
-                // Match with supplier catalog and enhance data
-                processedProducts = invoiceProducts.map((item, i) => {
-                    const catalogMatch = findInCatalog(item, supplier.catalog);
-                    const imageMatch = findImage(item, supplier.images);
-                    
-                    return buildShopifyProduct(item, catalogMatch, imageMatch, supplier, i);
+                const headers = data[0].map(h => String(h||'').trim().toLowerCase());
+                const items = data.slice(1).map(row => {
+                    const item = {};
+                    headers.forEach((h,i) => item[h] = row[i]);
+                    return normalizeLightspeedData(item);
                 });
 
-                updateProgress(100, 'Complete!');
-                
+                // Match & enhance
+                processedData = items.map((item, i) => {
+                    const catalogMatch = findInCatalog(item, supplier.catalog);
+                    const image = findImage(item, supplier.images);
+                    return buildShopifyProduct(item, catalogMatch, image, supplier, i);
+                });
+
                 document.getElementById('download-btn').disabled = false;
                 showPreview();
-                showStatus(`✅ Processed ${processedProducts.length} products! ${processedProducts.filter(p => p.matched).length} matched with catalog.`, 'success');
-                
-                setTimeout(() => {
-                    document.getElementById('processing-progress').classList.add('hidden');
-                }, 2000);
-                
-            } catch (error) {
-                showStatus(`Error: ${error.message}`, 'error');
-                console.error(error);
+                showStatus(`✅ Processed ${processedData.length} products!`, 'success');
+            } catch (e) {
+                showStatus(`Error: ${e.message}`, 'error');
             }
         }
 
-        async function extractFromPDF(file) {
-            const arrayBuffer = await file.arrayBuffer();
-            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-            let fullText = '';
-            
-            for (let i = 1; i <= pdf.numPages; i++) {
-                const page = await pdf.getPage(i);
-                const textContent = await page.getTextContent();
-                fullText += textContent.items.map(item => item.str).join(' ') + '\n';
-            }
-            
-            return parsePDFText(fullText);
+        function findInCatalog(item, catalog) {
+            const sku = String(item.sku||'').toLowerCase();
+            const upc = String(item.upc||'').toLowerCase();
+            return catalog.find(p => 
+                String(p.sku||p['custom sku']||'').toLowerCase() === sku ||
+                String(p.upc||'').toLowerCase() === upc
+            );
         }
 
-        function parsePDFText(text) {
-            const products = [];
-            const lines = text.split('\n').filter(l => l.trim());
+        function findImage(item, images) {
+            const sku = String(item.sku||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+            const match = images.find(img => img.id === sku || img.id.includes(sku) || sku.includes(img.id));
+            return match ? match.data : '';
+        }
+
+        function buildShopifyProduct(item, catalog, image, supplier, i) {
+            const merged = {...item, ...(catalog||{})};
+            const price = supplier.pricing === 'markup' 
+                ? (parseFloat(merged.cost||merged['default cost']||0) * supplier.markup).toFixed(2)
+                : merged.msrp || merged.price || '';
+
+            return {
+                'Handle': (merged.sku||merged['custom sku']||`auto-${i}`).toLowerCase().replace(/[^a-z0-9]/g,'-'),
+                'Title': merged.name||merged.item||merged.title||'Product',
+                'Body (HTML)': generateDescription(merged),
+                'Vendor': merged.vendor||merged.brand||'L\'Atelier Clandestin',
+                'Product Category': buildProductCategory(merged),
+                'Type': normalizeProductType(merged),
+                'Tags': generateStandardizedTags(merged),
+                'Published': 'TRUE',
+                'Option1 Name': 'Title',
+                'Option1 Value': 'Default Title',
+                'Variant SKU': merged.sku||merged['custom sku']||`AUTO-${i}`,
+                'Variant Grams': '0',
+                'Variant Inventory Tracker': 'shopify',
+                'Variant Inventory Qty': merged.qty||merged['qty.']||'0',
+                'Variant Inventory Policy': 'deny',
+                'Variant Fulfillment Service': 'manual',
+                'Variant Price': cleanPrice(price),
+                'Variant Compare At Price': cleanPrice(merged.msrp||''),
+                'Variant Requires Shipping': 'TRUE',
+                'Variant Taxable': 'TRUE',
+                'Variant Barcode': merged.upc||merged.ean||'',
+                'Image Src': image,
+                'Image Position': '1',
+                'Image Alt Text': `${merged.brand||''} ${merged.name||merged.item||'product'}`.trim(),
+                'Gift Card': 'FALSE',
+                'SEO Title': `${merged.brand||''} ${merged.name||merged.item||'Product'} | L'Atelier Clandestin`.substring(0,70),
+                'SEO Description': `Achetez ${merged.brand||''} ${merged.name||merged.item||'product'} chez L'Atelier Clandestin. Livraison rapide.`.substring(0,320),
+                'Variant Weight Unit': 'g',
+                'Cost per item': cleanPrice(merged.cost||merged['default cost']||''),
+                'Status': 'active'
+            };
+        }
+
+        function normalizeLightspeedData(item) {
+            return {
+                sku: item['custom sku']||item['manufact. sku']||item.sku,
+                upc: item.upc,
+                ean: item.ean,
+                name: item.item||item.name,
+                qty: item['qty.']||item.qty,
+                price: item.price,
+                cost: item['default cost']||item.cost,
+                msrp: item.msrp,
+                brand: item.brand,
+                vendor: item.vendor,
+                category: item.category,
+                'subcategory 1': item['subcategory 1'],
+                'subcategory 2': item['subcategory 2']
+            };
+        }
+
+        function normalizeProductType(item) {
+            const cat = (item.category||'').toLowerCase();
+            const sub = (item['subcategory 1']||'').toLowerCase();
             
-            // Simple extraction - looks for patterns with SKU/quantity/price
-            const patterns = [
-                /([A-Z0-9-]+)\s+(.+?)\s+(\d+)\s+\$?([\d,]+\.?\d*)/gi,
-                /(.{10,})\s+(\d+)\s+\$?([\d,]+\.?\d*)/gi
-            ];
+            if (cat.includes('composant')||sub.includes('composant')) return 'composantes';
+            if (cat.includes('access')||sub.includes('access')) return 'accessoires';
+            if (cat.includes('pneu')||cat.includes('tire')) return 'pneus';
+            if (cat.includes('velo')||cat.includes('bike')) return 'velos';
+            if (cat.includes('service')) return 'services';
+            if (cat.includes('vetement')||cat.includes('cloth')) return 'vetements';
+            return 'composantes';
+        }
+
+        function buildProductCategory(item) {
+            const cats = [];
+            if (item.category) cats.push(item.category);
+            for (let i = 1; i <= 9; i++) {
+                if (item[`subcategory ${i}`]) cats.push(item[`subcategory ${i}`]);
+            }
+            return cats.join(' > ');
+        }
+
+        function generateStandardizedTags(item) {
+            const tags = new Set();
+            if (item.brand) tags.add(item.brand);
             
-            lines.forEach(line => {
-                patterns.forEach(pattern => {
-                    const match = pattern.exec(line);
-                    if (match) {
-                        products.push({
-                            rawLine:
+            const type = normalizeProductType(item);
+            const sub = (item['subcategory 1']||'').toLowerCase();
+            
+            if (type === 'composantes') {
+                if (sub.includes('pedale')) tags.add('comp_pedales');
+                if (sub.includes('frein')) tags.add('comp_freins');
+                if (sub.includes('roue')) tags.add('comp_roues');
+            }
+            if (type === 'accessoires') {
+                if (sub.includes('lumiere')||sub.includes('light')) tags.add('acc_lumiere');
+                if (sub.includes('cadenas')) tags.add('acc_cadenas');
+            }
+            if (type === 'services') {
+                if (sub.includes('mise au point')) tags.add('srv_miseaupoint');
+                if (sub.includes('suspension')) tags.add('srv_suspensions');
+            }
+            
+            return Array.from(tags).join(', ');
+        }
+
+        function generateDescription(item) {
+            let html = `<h2>${item.name||item.item||'Product'}</h2>`;
+            if (item.brand) html += `<p><strong>Marque:</strong> ${item.brand}</p>`;
+            html += `<h3>Spécifications</h3><ul>`;
+            if (item.sku||item['custom sku']) html += `<li><strong>SKU:</strong> ${item.sku||item['custom sku']}</li>`;
+            if (item.upc) html += `<li><strong>UPC:</strong> ${item.upc}</li>`;
+            html += `</ul>`;
+            return html;
+        }
+
+        function cleanPrice(p) {
+            if (!p) return '';
+            return String(p).replace(/[^0-9.]/g,'');
+        }
+
+        function showPreview() {
+            const preview = document.getElementById('preview');
+            preview.classList.remove('hidden');
+            preview.innerHTML = `
+                <h2>📊 Preview (${processedData.length} products)</h2>
+                <table>
+                    <tr><th>SKU</th><th>Title</th><th>Type</th><th>Price</th><th>Qty</th></tr>
+                    ${processedData.slice(0,10).map(p => `
+                        <tr>
+                            <td>${p['Variant SKU']}</td>
+                            <td>${p.Title}</td>
+                            <td>${p.Type}</td>
+                            <td>$${p['Variant Price']}</td>
+                            <td>${p['Variant Inventory Qty']}</td>
+                        </tr>
+                    `).join('')}
+                </table>
+            `;
+        }
+
+        function downloadCSV() {
+            const csv = Papa.unparse(processedData);
+            const blob = new Blob([csv], {type:'text/csv'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `shopify-import-${Date.now()}.csv`;
+            a.click();
+        }
+
+        function showStatus(msg, type) {
+            document.getElementById('status').className = `status ${type}`;
+            document.getElementById('status').textContent = msg;
+        }
+
+        async function readCSV(file) {
+            return new Promise((resolve, reject) => {
+                Papa.parse(file, {
+                    complete: r => resolve(r.data),
+                    error: reject,
+                    skipEmptyLines: true
+                });
+            });
+        }
+
+        async function readExcel(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = e => {
+                    const data = new Uint8Array(e.target.result);
+                    const wb = XLSX.read(data, {type:'array'});
+                    const sheet = wb.Sheets[wb.SheetNames[0]];
+                    resolve(XLSX.utils.sheet_to_json(sheet, {header:1}));
+                };
+                reader.onerror = reject;
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        async function readFileAsDataURL(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = e => resolve(e.target.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function processMigration(type) {
+            if (type === 'products') {
+                const files = document.getElementById('ls-products').files;
+                if (files.length === 0) return showStatus('Upload Lightspeed products export', 'error');
+                
+                showStatus('Processing Lightspeed data...', 'info');
+                
+                try {
+                    let allProducts = [];
+                    
+                    for (const file of files) {
+                        const data = file.name.endsWith('.csv') 
+                            ? await readCSV(file)
+                            : await readExcel(file);
+                        
+                        const headers = data[0].map(h => String(h||'').trim().toLowerCase());
+                        const products = data.slice(1).map(row => {
+                            const item = {};
+                            headers.forEach((h,i) => item[h] = row[i]);
+                            return normalizeLightspeedData(item);
+                        });
+                        
+                        allProducts = allProducts.concat(products);
+                    }
+                    
+                    // Clean, enhance, and build Shopify products
+                    processedData = allProducts.map((item, i) => {
+                        // Clean the data
+                        const cleaned = cleanLightspeedData(item);
+                        
+                        // Match to supplier master files
+                        const supplierData = findSupplierData(cleaned);
+                        
+                        // Merge and enhance
+                        const enhanced = enhanceWithSupplierData(cleaned, supplierData);
+                        
+                        // Find images
+                        const image = findProductImage(enhanced);
+                        
+                        // Build final Shopify product
+                        return buildCleanShopifyProduct(enhanced, image, i);
+                    });
+                    
+                    showPreview();
+                    showStatus(`✅ Processed ${processedData.length} Lightspeed products - cleaned, enhanced, and ready for Shopify!`, 'success');
+                    document.getElementById('download-btn').disabled = false;
+                    
+                } catch (e) {
+                    showStatus(`Error: ${e.message}`, 'error');
+                }
+            } else {
+                showStatus('Customer migration coming soon!', 'info');
+            }
+        }
+
+        function cleanLightspeedData(item) {
+            return {
+                // Clean text fields - fix caps, accents, formatting
+                name: cleanText(item.name || item.item || ''),
+                brand: cleanText(item.brand || ''),
+                vendor: cleanText(item.vendor || ''),
+                
+                // Pricing - keep as numbers
+                price: item.price,
+                cost: item.cost,
+                msrp: item.msrp,
+                
+                // Identifiers
+                sku: item.sku,
+                upc: item.upc,
+                ean: item.ean,
+                
+                // Inventory
+                qty: item.qty,
+                
+                // Categories - clean and translate
+                category: cleanAndTranslate(item.category || ''),
+                subcategory1: cleanAndTranslate(item['subcategory 1'] || ''),
+                subcategory2: cleanAndTranslate(item['subcategory 2'] || ''),
+                
+                // Other
+                season: item.season,
+                tax: item.tax
+            };
+        }
+
+        function cleanText(text) {
+            if (!text) return '';
+            
+            text = String(text).trim();
+            
+            // Fix all caps
+            if (text === text.toUpperCase() && text.length > 3) {
+                text = text.toLowerCase();
+            }
+            
+            // Title case for proper nouns
+            text = text.split(' ').map(word => {
+                // Keep known brands in proper case
+                const brands = ['Shimano', 'SRAM', 'Look', 'Mavic', 'Fox', 'RockShox', 'Campagnolo'];
+                const match = brands.find(b => b.toLowerCase() === word.toLowerCase());
+                if (match) return match;
+                
+                // Title case for other words
+                if (word.length <= 2) return word.toLowerCase(); // de, le, la, etc.
+                return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+            }).join(' ');
+            
+            // Fix common accent issues
+            text = text.replace(/pedales/gi, 'pédales')
+                       .replace(/velo/gi, 'vélo')
+                       .replace(/chaine/gi, 'chaîne')
+                       .replace(/frein/gi, 'frein')
+                       .replace(/eclairage/gi, 'éclairage');
+            
+            return text;
+        }
+
+        function cleanAndTranslate(text) {
+            if (!text) return '';
+            
+            text = cleanText(text);
+            
+            // Translate common English terms to French
+            const translations = {
+                'brake': 'frein',
+                'brakes': 'freins',
+                'wheel': 'roue',
+                'wheels': 'roues',
+                'tire': 'pneu',
+                'tires': 'pneus',
+                'chain': 'chaîne',
+                'pedal': 'pédale',
+                'pedals': 'pédales',
+                'saddle': 'selle',
+                'handlebar': 'guidon',
+                'fork': 'fourche',
+                'frame': 'cadre',
+                'gear': 'vitesse',
+                'light': 'lumière',
+                'lights': 'lumières',
+                'lock': 'cadenas',
+                'pump': 'pompe',
+                'bottle': 'bidon',
+                'helmet': 'casque',
+                'accessories': 'accessoires',
+                'components': 'composantes',
+                'road': 'route',
+                'mountain': 'montagne'
+            };
+            
+            Object.keys(translations).forEach(en => {
+                const fr = translations[en];
+                const regex = new RegExp(`\\b${en}\\b`, 'gi');
+                text = text.replace(regex, fr);
+            });
+            
+            return text;
+        }
+
+        function findSupplierData(cleaned) {
+            // Search all supplier master files for matching product
+            for (const supplier of suppliers) {
+                if (!supplier.catalog || supplier.catalog.length === 0) continue;
+                
+                const match = supplier.catalog.find(p => {
+                    const pSku = String(p.sku||p['custom sku']||'').toLowerCase();
+                    const pUpc = String(p.upc||'').toLowerCase();
+                    const pName = String(p.name||p.item||'').toLowerCase();
+                    
+                    const sku = String(cleaned.sku||'').toLowerCase();
+                    const upc = String(cleaned.upc||'').toLowerCase();
+                    const name = String(cleaned.name||'').toLowerCase();
+                    
+                    // Match by SKU or UPC (exact)
+                    if (sku && pSku === sku) return true;
+                    if (upc && pUpc === upc) return true;
+                    
+                    // Match by name similarity (fuzzy)
+                    if (name && pName && pName.includes(name.substring(0, 15))) return true;
+                    
+                    return false;
+                });
+                
+                if (match) {
+                    return {
+                        supplier: supplier.name,
+                        data: match
+                    };
+                }
+            }
+            
+            return null;
+        }
+
+        function enhanceWithSupplierData(cleaned, supplierMatch) {
+            if (!supplierMatch) return cleaned;
+            
+            const supplier = supplierMatch.data;
+            
+            // Merge data - supplier data fills gaps
+            return {
+                ...cleaned,
+                
+                // Use supplier description if better/longer
+                description: supplier.description || cleaned.description || '',
+                
+                // Use supplier specs if available
+                specs: supplier.specs || supplier.specifications || '',
+                
+                // Fill missing pricing
+                msrp: cleaned.msrp || supplier.msrp || supplier['list price'] || '',
+                cost: cleaned.cost || supplier.cost || supplier['default cost'] || '',
+                
+                // Fill missing identifiers
+                upc: cleaned.upc || supplier.upc || '',
+                ean: cleaned.ean || supplier.ean || '',
+                
+                // Additional details
+                weight: supplier.weight || supplier.grams || '',
+                material: supplier.material || '',
+                color: supplier.color || supplier.colour || '',
+                size: supplier.size || '',
+                
+                // Flag as enhanced
+                enhanced: true,
+                enhancedBy: supplierMatch.supplier
+            };
+        }
+
+        function findProductImage(product) {
+            // Search all supplier images
+            const sku = String(product.sku||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+            const upc = String(product.upc||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+            
+            for (const supplier of suppliers) {
+                if (!supplier.images || supplier.images.length === 0) continue;
+                
+                const match = supplier.images.find(img => {
+                    const id = img.id;
+                    return id === sku || id === upc || 
+                           id.includes(sku) || id.includes(upc) ||
+                           sku.includes(id) || upc.includes(id);
+                });
+                
+                if (match) return match.data;
+            }
+            
+            return '';
+        }
+
+        function buildCleanShopifyProduct(product, image, index) {
+            // Build professional French description
+            let description = `<h2>${product.name}</h2>`;
+            
+            if (product.brand) {
+                description += `<p><strong>Marque:</strong> ${product.brand}</p>`;
+            }
+            
+            if (product.description) {
+                description += `<p>${product.description}</p>`;
+            }
+            
+            // Add specifications section
+            description += `<h3>Spécifications</h3><ul>`;
+            
+            if (product.sku) description += `<li><strong>SKU:</strong> ${product.sku}</li>`;
+            if (product.upc) description += `<li><strong>UPC:</strong> ${product.upc}</li>`;
+            if (product.weight) description += `<li><strong>Poids:</strong> ${product.weight}</li>`;
+            if (product.material) description += `<li><strong>Matériau:</strong> ${product.material}</li>`;
+            if (product.color) description += `<li><strong>Couleur:</strong> ${product.color}</li>`;
+            if (product.size) description += `<li><strong>Taille:</strong> ${product.size}</li>`;
+            
+            description += `</ul>`;
+            
+            // Add specs if available
+            if (product.specs) {
+                description += `<h3>Détails Techniques</h3><p>${product.specs}</p>`;
+            }
+            
+            // Add note if enhanced
+            if (product.enhanced) {
+                description += `<p style="font-size:11px;color:#666;"><em>Données enrichies par ${product.enhancedBy}</em></p>`;
+            }
+            
+            return {
+                'Handle': (product.sku || `product-${index}`).toLowerCase().replace(/[^a-z0-9]/g, '-'),
+                'Title': product.name || 'Produit',
+                'Body (HTML)': description,
+                'Vendor': product.vendor || product.brand || 'L\'Atelier Clandestin',
+                'Product Category': buildProductCategory(product),
+                'Type': normalizeProductType(product),
+                'Tags': generateStandardizedTags(product),
+                'Published': 'TRUE',
+                'Option1 Name': 'Title',
+                'Option1 Value': 'Default Title',
+                'Option1 Linked To': '',
+                'Option2 Name': '',
+                'Option2 Value': '',
+                'Option2 Linked To': '',
+                'Option3 Name': '',
+                'Option3 Value': '',
+                'Option3 Linked To': '',
+                'Variant SKU': product.sku || `AUTO-${index}`,
+                'Variant Grams': product.weight || '0',
+                'Variant Inventory Tracker': 'shopify',
+                'Variant Inventory Qty': product.qty || '0',
+                'Variant Inventory Policy': 'deny',
+                'Variant Fulfillment Service': 'manual',
+                'Variant Price': cleanPrice(product.price || product.msrp || ''),
+                'Variant Compare At Price': cleanPrice(product.msrp || ''),
+                'Variant Requires Shipping': 'TRUE',
+                'Variant Taxable': product.tax === 'Yes' ? 'TRUE' : 'TRUE',
+                'Unit Price Total Measure': '',
+                'Unit Price Total Measure Unit': '',
+                'Unit Price Base Measure': '',
+                'Unit Price Base Measure Unit': '',
+                'Variant Barcode': product.upc || product.ean || '',
+                'Image Src': image,
+                'Image Position': '1',
+                'Image Alt Text': `${product.brand || ''} ${product.name || 'produit'}`.trim(),
+                'Gift Card': 'FALSE',
+                'SEO Title': `${product.brand || ''} ${product.name || 'Produit'} | L'Atelier Clandestin`.substring(0, 70),
+                'SEO Description': `Achetez ${product.brand || ''} ${product.name || 'produit'} chez L'Atelier Clandestin à Montréal. Pièces et accessoires de vélo de qualité supérieure.`.substring(0, 320),
+                'Variant Image': '',
+                'Variant Weight Unit': 'g',
+                'Variant Tax Code': '',
+                'Cost per item': cleanPrice(product.cost || ''),
+                'Status': 'active'
+            };
+        }
+    </script>
+</body>
+</html>
