@@ -105,13 +105,17 @@
                 <div class="form-group">
                     <label>Pricing Strategy</label>
                     <select id="pricing-strategy">
-                        <option value="markup">Markup from Cost</option>
-                        <option value="msrp">Use MSRP</option>
+                        <option value="master">Use Master File Prices (Recommended)</option>
+                        <option value="invoice">Use Invoice Prices Only</option>
                     </select>
+                    <small style="color:#666;display:block;margin-top:5px;">
+                        ⚠️ Prices are NEVER calculated - only taken from supplier data
+                    </small>
                 </div>
-                <div class="form-group">
+                <div class="form-group hidden" id="markup-group">
                     <label>Markup Multiplier (e.g. 2.3)</label>
-                    <input type="number" id="markup" value="2.3" step="0.1">
+                    <input type="number" id="markup" value="0" step="0.1" disabled>
+                    <small style="color:#999;">Not used - prices come from supplier files only</small>
                 </div>
                 <div class="btn-row">
                     <button class="btn btn-primary" onclick="saveSupplier()">💾 Save</button>
@@ -211,7 +215,7 @@
                 id: Date.now(),
                 name,
                 pricing: document.getElementById('pricing-strategy').value,
-                markup: parseFloat(document.getElementById('markup').value),
+                markup: 0, // Not used - prices come from supplier data
                 catalog: [],
                 images: []
             };
@@ -327,9 +331,17 @@
 
         function buildShopifyProduct(item, catalog, image, supplier, i) {
             const merged = {...item, ...(catalog||{})};
-            const price = supplier.pricing === 'markup' 
-                ? (parseFloat(merged.cost||merged['default cost']||0) * supplier.markup).toFixed(2)
-                : merged.msrp || merged.price || '';
+            
+            // CRITICAL: Never calculate prices - only use supplier data
+            // Priority: 1) Master file  2) Invoice  3) Leave blank
+            const retailPrice = merged.price || merged['retail price'] || merged['sell price'] || merged.msrp || '';
+            const costPrice = merged.cost || merged['default cost'] || merged['cost price'] || merged['wholesale price'] || '';
+            const comparePrice = merged.msrp || merged['compare at price'] || merged['list price'] || '';
+
+            // Warn if no price found
+            if (!retailPrice) {
+                console.warn(`⚠️ No retail price for: ${merged.name || merged.item}`);
+            }
 
             return {
                 'Handle': (merged.sku||merged['custom sku']||`auto-${i}`).toLowerCase().replace(/[^a-z0-9]/g,'-'),
@@ -348,8 +360,8 @@
                 'Variant Inventory Qty': merged.qty||merged['qty.']||'0',
                 'Variant Inventory Policy': 'deny',
                 'Variant Fulfillment Service': 'manual',
-                'Variant Price': cleanPrice(price),
-                'Variant Compare At Price': cleanPrice(merged.msrp||''),
+                'Variant Price': cleanPrice(retailPrice),
+                'Variant Compare At Price': cleanPrice(comparePrice),
                 'Variant Requires Shipping': 'TRUE',
                 'Variant Taxable': 'TRUE',
                 'Variant Barcode': merged.upc||merged.ean||'',
@@ -360,7 +372,7 @@
                 'SEO Title': `${merged.brand||''} ${merged.name||merged.item||'Product'} | L'Atelier Clandestin`.substring(0,70),
                 'SEO Description': `Achetez ${merged.brand||''} ${merged.name||merged.item||'product'} chez L'Atelier Clandestin. Livraison rapide.`.substring(0,320),
                 'Variant Weight Unit': 'g',
-                'Cost per item': cleanPrice(merged.cost||merged['default cost']||''),
+                'Cost per item': cleanPrice(costPrice),
                 'Status': 'active'
             };
         }
@@ -797,6 +809,16 @@
                 description += `<p style="font-size:11px;color:#666;"><em>Données enrichies par ${product.enhancedBy}</em></p>`;
             }
             
+            // CRITICAL: Use supplier prices ONLY - never calculate
+            const retailPrice = product.price || product.msrp || '';
+            const costPrice = product.cost || '';
+            const comparePrice = product.msrp || '';
+            
+            // Warn if missing prices
+            if (!retailPrice) {
+                console.warn(`⚠️ No retail price for: ${product.name}`);
+            }
+            
             return {
                 'Handle': (product.sku || `product-${index}`).toLowerCase().replace(/[^a-z0-9]/g, '-'),
                 'Title': product.name || 'Produit',
@@ -821,8 +843,8 @@
                 'Variant Inventory Qty': product.qty || '0',
                 'Variant Inventory Policy': 'deny',
                 'Variant Fulfillment Service': 'manual',
-                'Variant Price': cleanPrice(product.price || product.msrp || ''),
-                'Variant Compare At Price': cleanPrice(product.msrp || ''),
+                'Variant Price': cleanPrice(retailPrice),
+                'Variant Compare At Price': cleanPrice(comparePrice),
                 'Variant Requires Shipping': 'TRUE',
                 'Variant Taxable': product.tax === 'Yes' ? 'TRUE' : 'TRUE',
                 'Unit Price Total Measure': '',
@@ -839,7 +861,7 @@
                 'Variant Image': '',
                 'Variant Weight Unit': 'g',
                 'Variant Tax Code': '',
-                'Cost per item': cleanPrice(product.cost || ''),
+                'Cost per item': cleanPrice(costPrice),
                 'Status': 'active'
             };
         }
