@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FinanceOS - L'Atelier Clandestin</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/recharts@2.10.3/umd/Recharts.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'IBM Plex Sans', sans-serif; margin: 0; background: #f8fafc; }
+    .tab-active { background: #1e293b; color: white; }
+    .kpi-card { transition: transform 0.2s, box-shadow 0.2s; }
+    .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script type="text/babel">
+    const { useState, useMemo } = React;
+    const { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
+            BarChart, Bar, PieChart, Pie, Cell, ComposedChart } = Recharts;
+
+    // ============================================
+    // FY2025 AUTHORITATIVE BASELINE DATA
+    // ============================================
+    const FY2025 = {
+      netRevenue: 904462,
+      totalCOGS: 575868,
+      grossProfit: 239555,
+      grossMarginPct: 26.5,
+      laborRevenue: 69107,
+      inventoryCost: 281964,
+      inventoryMSRP: 369455,
+      arTotal: 36333,
+      apTotal: 112164,
+      bookings2026: 274419,
+      inventoryTurns: 2.2,
+    };
+
+    const MONTHLY_REVENUE = [
+      { month: 'Dec', pct: 2, revenue: 18089 },
+      { month: 'Jan', pct: 2, revenue: 18089 },
+      { month: 'Feb', pct: 6, revenue: 54268 },
+      { month: 'Mar', pct: 8, revenue: 72357 },
+      { month: 'Apr', pct: 11, revenue: 99491 },
+      { month: 'May', pct: 15, revenue: 135669 },
+      { month: 'Jun', pct: 12, revenue: 108535 },
+      { month: 'Jul', pct: 17, revenue: 153759 },
+      { month: 'Aug', pct: 11, revenue: 99491 },
+      { month: 'Sep', pct: 8, revenue: 72357 },
+      { month: 'Oct', pct: 6, revenue: 54268 },
+      { month: 'Nov', pct: 2, revenue: 18089 },
+    ];
+
+    const CATEGORY_DATA = [
+      { name: 'Vélos', sales: 593480, margin: 22.7, pct: 63.3 },
+      { name: 'Composantes', sales: 128888, margin: 24.3, pct: 13.7 },
+      { name: 'Accessoires', sales: 111360, margin: 27.7, pct: 11.9 },
+      { name: 'Services', sales: 69107, margin: 99.7, pct: 7.4 },
+      { name: 'Pneus', sales: 26944, margin: 30.7, pct: 2.9 },
+    ];
+
+    const AP_AGING = [
+      { supplier: 'LTP Sports', total: 77102, current: 7756, d31_60: 29478, d61_90: 15114, d91plus: 24754 },
+      { supplier: '3T Bike', total: 11177, current: 0, d31_60: 5128, d61_90: 5976, d91plus: 74 },
+      { supplier: 'MRQ Taxes', total: 8058, current: 8058, d31_60: 0, d61_90: 0, d91plus: 0 },
+      { supplier: 'Orbea', total: 6508, current: 7361, d31_60: 0, d61_90: -722, d91plus: -131 },
+      { supplier: 'Marin', total: 4305, current: 1165, d31_60: 3140, d61_90: 0, d91plus: 0 },
+    ];
+
+    const BOOKINGS = [
+      { supplier: 'Norco Booking', amount: 50743, cancelable: true, recommendation: 'REDUCE 30%', savings: 15223 },
+      { supplier: 'BMC', amount: 35000, cancelable: false, recommendation: 'KEEP', savings: 0 },
+      { supplier: 'Norco Closeout', amount: 28543, cancelable: true, recommendation: 'REDUCE 20%', savings: 5709 },
+      { supplier: 'Marin Bikes', amount: 26103, cancelable: false, recommendation: 'KEEP', savings: 0 },
+      { supplier: 'Moustache', amount: 20908, cancelable: false, recommendation: 'KEEP', savings: 0 },
+      { supplier: '3T', amount: 17933, cancelable: true, recommendation: 'REDUCE 25%', savings: 4483 },
+      { supplier: 'SAVA', amount: 15133, cancelable: true, recommendation: 'REDUCE 50%', savings: 7567 },
+      { supplier: 'Felt', amount: 13647, cancelable: false, recommendation: 'KEEP', savings: 0 },
+    ];
+
+    const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444'];
+
+    const fmt = (v) => new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD', maximumFractionDigits: 0 }).format(v);
+
+    // Components
+    const KPICard = ({ title, value, subtitle, alert, icon }) => (
+      <div className={`kpi-card bg-white rounded-xl p-5 shadow-sm border-l-4 ${alert ? 'border-l-red-500' : 'border-l-blue-500'}`}>
+        <div className="text-2xl mb-1">{icon}</div>
+        <div className="text-2xl font-bold text-gray-900">{value}</div>
+        <div className="text-xs text-gray-500 uppercase tracking-wide mt-1">{title}</div>
+        {subtitle && <div className="text-xs text-gray-400 mt-1">{subtitle}</div>}
+        {alert && <div className="mt-2 text-xs text-red-600 flex items-center gap-1">⚠️ {alert}</div>}
+      </div>
+    );
+
+    const AlertCard = ({ severity, title, description }) => {
+      const colors = {
+        critical: 'bg-red-50 border-red-200 text-red-800',
+        warning: 'bg-amber-50 border-amber-200 text-amber-800',
+        info: 'bg-blue-50 border-blue-200 text-blue-800',
+      };
+      return (
+        <div className={`${colors[severity]} border rounded-lg p-4`}>
+          <div className="font-semibold">{severity === 'critical' ? '🔴' : '🟡'} {title}</div>
+          <div className="text-sm text-gray-600 mt-1">{description}</div>
+        </div>
+      );
+    };
+
+    // Main App
+    function App() {
+      const [tab, setTab] = useState('cockpit');
+      const [salesAdj, setSalesAdj] = useState(0);
+      const [marginAdj, setMarginAdj] = useState(0);
+      const [bookingCut, setBookingCut] = useState(0);
+
+      const projRevenue = FY2025.netRevenue * (1 + salesAdj/100);
+      const projMargin = FY2025.grossMarginPct + marginAdj;
+      const projBookings = FY2025.bookings2026 * (1 - bookingCut/100);
+
+      const tabs = [
+        { id: 'cockpit', label: '📊 Friday Cockpit' },
+        { id: 'pnl', label: '💰 P&L' },
+        { id: 'working', label: '💳 Working Capital' },
+        { id: 'inventory', label: '📦 Inventory' },
+        { id: 'bookings', label: '🚚 Bookings Risk' },
+      ];
+
+      return (
+        <div className="min-h-screen bg-gray-50">
+          {/* Header */}
+          <header className="bg-gradient-to-r from-slate-900 to-slate-800 text-white px-6 py-4">
+            <div className="max-w-7xl mx-auto flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="text-3xl">🚲</div>
+                <div>
+                  <h1 className="text-xl font-bold">L'Atelier Clandestin</h1>
+                  <p className="text-xs text-slate-400">FinanceOS • FY2026 Week 09</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-xs text-slate-400">Data Source</div>
+                <div className="text-sm">FY2025 Lightspeed Baseline</div>
+              </div>
+            </div>
+          </header>
+
+          {/* Nav */}
+          <nav className="bg-white border-b shadow-sm sticky top-0 z-10">
+            <div className="max-w-7xl mx-auto px-6 py-2 flex gap-2 overflow-x-auto">
+              {tabs.map(t => (
+                <button key={t.id} onClick={() => setTab(t.id)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all
+                    ${tab === t.id ? 'bg-slate-900 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </nav>
+
+          {/* Content */}
+          <main className="max-w-7xl mx-auto px-6 py-6">
+            
+            {/* FRIDAY COCKPIT */}
+            {tab === 'cockpit' && (
+              <div className="space-y-6">
+                {/* Alerts */}
+                <div className="space-y-3">
+                  <h2 className="text-lg font-bold flex items-center gap-2">⚡ Action Required This Week</h2>
+                  <AlertCard severity="critical" title="AP Aging: $46,895 overdue 60+ days"
+                    description="LTP Sports ($39,868) and 3T ($6,050) need immediate attention. Risk of supply disruption." />
+                  <AlertCard severity="warning" title="2026 Bookings: $274K committed (30% of FY25 revenue)"
+                    description="Consider reducing cancelable orders by $38K. Norco, SAVA, 3T have flexibility." />
+                  <AlertCard severity="warning" title="Inventory Turns: 2.2x (Target: 3.0x)"
+                    description="$74K+ cash trapped in slow inventory. Implement weekly deadstock clearance." />
+                </div>
+
+                {/* KPIs */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <KPICard icon="💵" title="FY2025 Net Revenue" value={fmt(FY2025.netRevenue)} subtitle="Dec 2024 – Nov 2025" />
+                  <KPICard icon="📈" title="Gross Margin" value={`${FY2025.grossMarginPct}%`} subtitle={`${fmt(FY2025.grossProfit)} profit`} />
+                  <KPICard icon="📦" title="Inventory at Cost" value={fmt(FY2025.inventoryCost)} subtitle="2.2x turns" alert="$74K cash opportunity" />
+                  <KPICard icon="🚚" title="2026 Bookings" value={fmt(FY2025.bookings2026)} subtitle="30% of FY25 revenue" alert="Major WC exposure" />
+                </div>
+
+                {/* Seasonality Chart */}
+                <div className="bg-white rounded-xl p-6 shadow-sm">
+                  <h3 className="font-bold mb-4">📅 Revenue Seasonality (FY2025)</h3>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={MONTHLY_REVENUE}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                        <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                        <YAxis tickFormatter={(v) => `$${(v/1000).toFixed(0)}K`} tick={{ fontSize: 12 }} />
+                        <Tooltip formatter={(v) => fmt(v)} />
+                        <Bar dataKey="revenue" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="mt-4 grid grid-cols-4 gap-4 text-center text-sm">
+                    <div className="p-3 bg-blue-50 rounded-lg">
+                      <div className="text-blue-600 font-semibold">Peak Month</div>
+                      <div className="text-lg font-bold">July (17%)</div>
+                    </div>
+                    <div className="p-3 bg-gray-50 rounded-lg">
+                      <div className="text-gray-600 font-semibold">Trough</div>
+                      <div className="text-lg font-bold">Jan/Nov/Dec (2%)</div>
+                    </div>
+                    <div className="p-3 bg-amber-50 rounded-lg">
+                      <div className="text-amber-600 font-semibold">Peak:Trough</div>
+                      <div className="text-lg font-bold">18:1 Ratio</div>
+                    </div>
+                    <div className="p-3 bg-green-50 rounded-lg">
+                      <div className="text-green-600 font-semibold">Peak Season</div>
+                      <div className="text-lg font-bold">Apr-Jul (55%)</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Next 3 Actions */}
+                <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-xl p-6 text-white">
+                  <h3 className="font-bold mb-4">✅ Next 3 Actions (This Week)</h3>
+                  <div className="grid md:grid-cols-3 gap-4">
+                    <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+                      <div className="text-xs text-slate-400 uppercase mb-2">Action 1</div>
+                      <div className="font-semibold mb-1">Contact LTP Sports</div>
+                      <div className="text-sm text-slate-300">Negotiate payment plan for $39,868 overdue.</div>
+                    </div>
+                    <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+                      <div className="text-xs text-slate-400 uppercase mb-2">Action 2</div>
+                      <div className="font-semibold mb-1">Cut Norco Booking 30%</div>
+                      <div className="text-sm text-slate-300">Save $15K on cancelable order before deadline.</div>
+                    </div>
+                    <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+                      <div className="text-xs text-slate-400 uppercase mb-2">Action 3</div>
+                      <div className="font-semibold mb-1">Launch Deadstock Clearance</div>
+                      <div className="text-sm text-slate-300">Target 180+ day items. 20-30% markdown.</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* P&L TAB */}
+            {tab === 'pnl' && (
+              <div className="space-y-6">
+                <h2 className="text-lg font-bold">💰 FY2025 P&L Summary</h2>
+                <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600">Line Item</th>
+                        <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600">Amount</th>
+                        <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600">% of Revenue</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      <tr className="bg-blue-50">
+                        <td className="px-6 py-4 font-semibold">Net Revenue</td>
+                        <td className="px-6 py-4 text-right font-bold">{fmt(904462)}</td>
+                        <td className="px-6 py-4 text-right">100.0%</td>
+                      </tr>
+                      {CATEGORY_DATA.map((c, i) => (
+                        <tr key={i}>
+                          <td className="px-6 py-3 pl-10 text-gray-600">↳ {c.name}</td>
+                          <td className="px-6 py-3 text-right text-gray-600">{fmt(c.sales)}</td>
+                          <td className="px-6 py-3 text-right text-gray-500">{c.pct}%</td>
+                        </tr>
+                      ))}
+                      <tr>
+                        <td className="px-6 py-4 font-semibold">Cost of Goods Sold</td>
+                        <td className="px-6 py-4 text-right font-bold text-red-600">({fmt(575868)})</td>
+                        <td className="px-6 py-4 text-right">63.7%</td>
+                      </tr>
+                      <tr className="bg-green-50">
+                        <td className="px-6 py-4 font-semibold">Gross Profit</td>
+                        <td className="px-6 py-4 text-right font-bold text-green-600">{fmt(239555)}</td>
+                        <td className="px-6 py-4 text-right text-green-600">26.5%</td>
+                      </tr>
+                      <tr>
+                        <td className="px-6 py-4 font-semibold">Fixed Opex (excl. payroll)</td>
+                        <td className="px-6 py-4 text-right font-bold text-red-600">({fmt(71016)})</td>
+                        <td className="px-6 py-4 text-right">7.9%</td>
+                      </tr>
+                      <tr className="bg-amber-50">
+                        <td className="px-6 py-4 font-semibold">Operating Income (pre-payroll)</td>
+                        <td className="px-6 py-4 text-right font-bold text-amber-600">{fmt(168539)}</td>
+                        <td className="px-6 py-4 text-right text-amber-600">18.6%</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Margin by Category */}
+                <div className="bg-white rounded-xl p-6 shadow-sm">
+                  <h3 className="font-bold mb-4">Margin by Category</h3>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={CATEGORY_DATA} layout="vertical">
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                        <XAxis type="number" domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
+                        <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 12 }} />
+                        <Tooltip formatter={(v) => `${v}%`} />
+                        <Bar dataKey="margin" fill="#10b981" radius={[0, 4, 4, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* WORKING CAPITAL TAB */}
+            {tab === 'working' && (
+              <div className="space-y-6">
+                <h2 className="text-lg font-bold">💳 Working Capital Position</h2>
+                
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <KPICard icon="👥" title="Accounts Receivable" value={fmt(36333)} subtitle="Layaways + Open WO" />
+                  <KPICard icon="🚚" title="Accounts Payable" value={fmt(112164)} alert="42% overdue 60+" />
+                  <KPICard icon="📦" title="Inventory" value={fmt(281964)} subtitle="2.2x turns" />
+                  <KPICard icon="💰" title="Net Working Capital" value={fmt(206133)} subtitle="AR + Inv - AP" />
+                </div>
+
+                {/* AP Aging Table */}
+                <div className="bg-white rounded-xl p-6 shadow-sm">
+                  <h3 className="font-bold mb-4">AP Aging Analysis</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-semibold">Supplier</th>
+                          <th className="px-4 py-3 text-right text-xs font-semibold">Total</th>
+                          <th className="px-4 py-3 text-right text-xs font-semibold">Current</th>
+                          <th className="px-4 py-3 text-right text-xs font-semibold">31-60</th>
+                          <th className="px-4 py-3 text-right text-xs font-semibold text-red-600">61-90</th>
+                          <th className="px-4 py-3 text-right text-xs font-semibold text-red-600">91+</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {AP_AGING.map((row, i) => (
+                          <tr key={i} className={row.d91plus > 10000 ? 'bg-red-50' : ''}>
+                            <td className="px-4 py-3 font-medium">{row.supplier}</td>
+                            <td className="px-4 py-3 text-right font-semibold">{fmt(row.total)}</td>
+                            <td className="px-4 py-3 text-right">{fmt(row.current)}</td>
+                            <td className="px-4 py-3 text-right text-amber-600">{fmt(row.d31_60)}</td>
+                            <td className="px-4 py-3 text-right text-red-600">{fmt(row.d61_90)}</td>
+                            <td className="px-4 py-3 text-right text-red-700 font-semibold">{fmt(row.d91plus)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* INVENTORY TAB */}
+            {tab === 'inventory' && (
+              <div className="space-y-6">
+                <h2 className="text-lg font-bold">📦 Inventory Control</h2>
+                
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <KPICard icon="💵" title="Inventory at Cost" value={fmt(281964)} />
+                  <KPICard icon="🏷️" title="Inventory at MSRP" value={fmt(369455)} subtitle="31% markup" />
+                  <KPICard icon="🔄" title="Annual Turns" value="2.2x" alert="Target: 3.0x" />
+                  <KPICard icon="💰" title="Cash Release Opportunity" value={fmt(90000)} subtitle="If turns reach 3.0x" />
+                </div>
+
+                <div className="bg-white rounded-xl p-6 shadow-sm">
+                  <h3 className="font-bold mb-4">Turns Calculation</h3>
+                  <div className="grid md:grid-cols-3 gap-6">
+                    <div className="p-4 bg-gray-50 rounded-lg text-center">
+                      <div className="text-sm text-gray-500 mb-1">Annual COGS</div>
+                      <div className="text-2xl font-bold">{fmt(575868)}</div>
+                    </div>
+                    <div className="p-4 bg-gray-50 rounded-lg text-center">
+                      <div className="text-sm text-gray-500 mb-1">Avg Inventory</div>
+                      <div className="text-2xl font-bold">{fmt(260000)}</div>
+                    </div>
+                    <div className="p-4 bg-blue-50 rounded-lg text-center">
+                      <div className="text-sm text-blue-600 mb-1">Inventory Turns</div>
+                      <div className="text-2xl font-bold text-blue-700">2.2x</div>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="font-semibold text-green-800 mb-2">💡 Cash Release Calculation</div>
+                    <div className="text-sm text-green-700">
+                      <p>Current inventory: {fmt(281964)}</p>
+                      <p>Target @ 3.0x turns: {fmt(191956)}</p>
+                      <p className="font-bold mt-2">Potential cash release: {fmt(89000)}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl p-6 shadow-sm border-2 border-dashed border-gray-300">
+                  <h3 className="font-bold mb-4">🕐 Inventory Aging (Coming Soon)</h3>
+                  <p className="text-gray-500 text-sm">Requires received-date tracking in Shopify</p>
+                  <div className="grid grid-cols-4 gap-4 mt-4">
+                    <div className="p-4 bg-green-50 rounded-lg text-center">
+                      <div className="text-sm text-green-600">0-30 days</div>
+                      <div className="text-xl font-bold text-green-700">--</div>
+                    </div>
+                    <div className="p-4 bg-blue-50 rounded-lg text-center">
+                      <div className="text-sm text-blue-600">31-90 days</div>
+                      <div className="text-xl font-bold text-blue-700">--</div>
+                    </div>
+                    <div className="p-4 bg-amber-50 rounded-lg text-center">
+                      <div className="text-sm text-amber-600">91-180 days</div>
+                      <div className="text-xl font-bold text-amber-700">--</div>
+                    </div>
+                    <div className="p-4 bg-red-50 rounded-lg text-center">
+                      <div className="text-sm text-red-600">180+ days</div>
+                      <div className="text-xl font-bold text-red-700">--</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* BOOKINGS TAB */}
+            {tab === 'bookings' && (
+              <div className="space-y-6">
+                <h2 className="text-lg font-bold">🚚 2026 Bookings Risk Analysis</h2>
+                
+                {/* Scenario Sliders */}
+                <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-xl p-6 text-white">
+                  <h3 className="font-bold mb-4">🎛️ Scenario Planning</h3>
+                  <div className="grid md:grid-cols-3 gap-6">
+                    <div>
+                      <label className="text-sm text-slate-400">Sales Growth vs FY25</label>
+                      <div className="flex items-center gap-3 mt-2">
+                        <input type="range" min="-20" max="20" value={salesAdj}
+                          onChange={(e) => setSalesAdj(Number(e.target.value))} className="flex-1" />
+                        <span className="font-mono text-lg w-16 text-right">{salesAdj > 0 ? '+' : ''}{salesAdj}%</span>
+                      </div>
+                      <div className="text-sm text-slate-400 mt-1">Projected: {fmt(projRevenue)}</div>
+                    </div>
+                    <div>
+                      <label className="text-sm text-slate-400">Margin Change (pp)</label>
+                      <div className="flex items-center gap-3 mt-2">
+                        <input type="range" min="-5" max="5" value={marginAdj}
+                          onChange={(e) => setMarginAdj(Number(e.target.value))} className="flex-1" />
+                        <span className="font-mono text-lg w-16 text-right">{marginAdj > 0 ? '+' : ''}{marginAdj}pp</span>
+                      </div>
+                      <div className="text-sm text-slate-400 mt-1">Projected GM: {projMargin.toFixed(1)}%</div>
+                    </div>
+                    <div>
+                      <label className="text-sm text-slate-400">Booking Reduction</label>
+                      <div className="flex items-center gap-3 mt-2">
+                        <input type="range" min="0" max="50" value={bookingCut}
+                          onChange={(e) => setBookingCut(Number(e.target.value))} className="flex-1" />
+                        <span className="font-mono text-lg w-16 text-right">-{bookingCut}%</span>
+                      </div>
+                      <div className="text-sm text-slate-400 mt-1">Adjusted: {fmt(projBookings)}</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Booking Table */}
+                <div className="bg-white rounded-xl p-6 shadow-sm">
+                  <h3 className="font-bold mb-4">Booking Detail</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-semibold">Supplier</th>
+                          <th className="px-4 py-3 text-right text-xs font-semibold">Amount</th>
+                          <th className="px-4 py-3 text-center text-xs font-semibold">Cancelable</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold">Recommendation</th>
+                          <th className="px-4 py-3 text-right text-xs font-semibold">Potential Savings</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {BOOKINGS.map((row, i) => (
+                          <tr key={i} className={row.savings > 0 ? 'bg-amber-50' : ''}>
+                            <td className="px-4 py-3 font-medium">{row.supplier}</td>
+                            <td className="px-4 py-3 text-right">{fmt(row.amount)}</td>
+                            <td className="px-4 py-3 text-center">
+                              {row.cancelable ? <span className="text-green-600">✓</span> : <span className="text-gray-400">—</span>}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className={row.savings > 0 ? 'text-amber-700 font-medium' : 'text-gray-600'}>
+                                {row.recommendation}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-right font-semibold text-green-600">
+                              {row.savings > 0 ? fmt(row.savings) : '—'}
+                            </td>
+                          </tr>
+                        ))}
+                        <tr className="bg-gray-100 font-bold">
+                          <td className="px-4 py-3">TOTAL</td>
+                          <td className="px-4 py-3 text-right">{fmt(BOOKINGS.reduce((s, r) => s + r.amount, 0))}</td>
+                          <td></td>
+                          <td></td>
+                          <td className="px-4 py-3 text-right text-green-600">{fmt(BOOKINGS.reduce((s, r) => s + r.savings, 0))}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+          </main>
+
+          {/* Footer */}
+          <footer className="bg-white border-t mt-8 py-4 px-6">
+            <div className="max-w-7xl mx-auto flex items-center justify-between text-sm text-gray-500">
+              <div>FinanceOS v1.0 • L'Atelier Clandestin</div>
+              <div>FY2025 Baseline: Lightspeed | FY2026+: Shopify/WorkMate</div>
+            </div>
+          </footer>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
